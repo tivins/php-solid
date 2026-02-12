@@ -1,6 +1,9 @@
 # Dependencies
 vendor
 
+# PHPUnit
+.phpunit.cache
+
 # IDEs
 .idea
 .cursor

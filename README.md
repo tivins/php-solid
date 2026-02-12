@@ -1,4 +1,4 @@
-# poc-liskov-check
+# PoC - LSP violations detector
 
 A PHP proof-of-concept that detects **Liskov Substitution Principle (LSP)** violations, focusing on exception contracts between classes and their contracts (interfaces and parent classes).
 
@@ -49,13 +49,21 @@ php lsp-checker.php src/
 
 The classes (and their contracts — interfaces, parent classes) must be loadable. If a `vendor/autoload.php` is found in or near the target directory, it is included automatically.
 
-### Run the built-in example
-
-Without arguments, the checker runs the built-in example (`liskov-principles-violation-example.php`). You can also request it explicitly:
+Without a directory, the script prints usage and exits:
 
 ```bash
-php lsp-checker.php              # runs the built-in example (default)
-php lsp-checker.php --example    # same, explicit
+php lsp-checker.php
+# Usage: lsp-checker.php <directory> [--json] [--quiet]
+#   ...
+```
+
+### Run unit tests
+
+The example classes in `liskov-principles-violation-example.php` are used by PHPUnit tests:
+
+```bash
+composer install
+composer test # or vendor/bin/phpunit
 ```
 
 ### Output streams (stdout / stderr)
@@ -67,12 +75,11 @@ So you can capture only the result in a file and keep logs separate.
 
 ### Options
 
-| Option      | Description |
-|-------------|-------------|
-| `<path>`    | Directory to scan recursively for PHP classes. If omitted, the built-in example is used. |
-| `--example` | Force the built-in example even if a path is provided. |
-| `--quiet`   | Suppress progress and summary on stderr. Only the result (stdout) is produced — useful for CI or when piping. |
-| `--json`    | Machine-readable output: write only the JSON report to stdout; no [PASS]/[FAIL] lines. |
+| Option    | Description |
+|-----------|-------------|
+| `<path>`  | **Required.** Directory to scan recursively for PHP classes. |
+| `--quiet` | Suppress progress and summary on stderr. Only the result (stdout) is produced — useful for CI or when piping. |
+| `--json`  | Machine-readable output: write only the JSON report to stdout; no [PASS]/[FAIL] lines. |
 
 ### Pipes and redirections
 
@@ -128,7 +135,7 @@ src/
     └── StdWriter.php                           # stdout / stderr writer with format filtering
 
 lsp-checker.php                              # CLI entry point
-liskov-principles-violation-example.php      # Example classes (MyClass1–MyClass5) for testing
+liskov-principles-violation-example.php      # Example classes (MyClass1–MyClass5), used by PHPUnit tests
 ```
 
 - **ThrowsDetector**  

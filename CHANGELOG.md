@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **PHPUnit tests** — `tests/LiskovSubstitutionPrincipleCheckerTest.php` uses the example classes (MyClass1–MyClass5) to assert expected LSP violations and passes
+- `phpunit.xml.dist` for test configuration
+
+### Changed
+- **CLI** — `<directory>` is now required; without arguments the script prints usage and exits with code 2
+- Removed `--example` option; the built-in example is only used by unit tests (`vendor/bin/phpunit`)
+
 ## [0.3.0] - 2026-02-12
 
 ### Added

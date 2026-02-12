@@ -14,8 +14,7 @@ $format = FormatType::TEXT;
 if (in_array('--json', $argv)) {
     $format = FormatType::JSON;
 }
-$verbose  = !in_array('--quiet', $argv);
-$example  = in_array('--example', $argv);
+$verbose = !in_array('--quiet', $argv);
 
 // First non-option argument = directory to scan.
 $directory = null;
@@ -26,29 +25,25 @@ foreach (array_slice($argv, 1) as $arg) {
     }
 }
 
-// --- Resolve classes to check ----------------------------------------------
+if ($directory === null) {
+    fwrite(STDERR, "Usage: lsp-checker.php <directory> [--json] [--quiet]\n");
+    fwrite(STDERR, "  <directory>  Path to a directory containing PHP files to check.\n");
+    fwrite(STDERR, "  --json       Output violations as JSON.\n");
+    fwrite(STDERR, "  --quiet      Minimal output.\n");
+    fwrite(STDERR, "\nRun unit tests with: vendor/bin/phpunit\n");
+    exit(2);
+}
 
-if ($example || $directory === null) {
-    // Built-in example (backward-compatible default).
-    require_once __dir__ . '/liskov-principles-violation-example.php';
-    $classes = [
-        MyClass1::class,
-        MyClass2::class,
-        MyClass3::class,
-        MyClass4::class,
-        MyClass5::class,
-    ];
-} else {
-    if (!is_dir($directory)) {
-        fwrite(STDERR, "Error: '$directory' is not a valid directory.\n");
-        exit(2);
-    }
-    $finder  = new ClassFinder();
-    $classes = $finder->findClassesInDirectory($directory);
-    if (empty($classes)) {
-        fwrite(STDERR, "No PHP classes found in '$directory'.\n");
-        exit(0);
-    }
+if (!is_dir($directory)) {
+    fwrite(STDERR, "Error: '$directory' is not a valid directory.\n");
+    exit(2);
+}
+
+$finder  = new ClassFinder();
+$classes = $finder->findClassesInDirectory($directory);
+if (empty($classes)) {
+    fwrite(STDERR, "No PHP classes found in '$directory'.\n");
+    exit(0);
 }
 
 $writer = new StdWriter($verbose, $format);
