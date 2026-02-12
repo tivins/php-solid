@@ -34,9 +34,7 @@ Violations are reported in two ways:
 ## Installation
 
 ```bash
-git clone <repo-url>
-cd poc-liskov-check
-composer install
+composer require tivins/poc-liskov-check
 ```
 
 ## Usage
@@ -45,7 +43,37 @@ composer install
 2. Run the checker and pass the classes to check (see `lsp-checker.php` for the current setup):
 
 ```bash
-php lsp-checker.php
+vendor/bin/lsp-checker.php
+```
+
+### Output streams (stdout / stderr)
+
+- **stdout** — Program result only: either human-readable [PASS]/[FAIL] lines (default) or a single JSON report when `--json` is used. Safe to redirect or pipe (e.g. `> out.json`).
+- **stderr** — Progress and summary messages (“Checking…”, “Classes checked: …”, etc.). Suppressed with `--quiet`.
+
+So you can capture only the result in a file and keep logs separate.
+
+### Options
+
+| Option    | Description |
+|-----------|-------------|
+| `--quiet` | Suppress progress and summary on stderr. Only the result (stdout) is produced — useful for CI or when piping. |
+| `--json`  | Machine-readable output: write only the JSON report to stdout; no [PASS]/[FAIL] lines. |
+
+### Pipes and redirections
+
+| Goal | Command |
+|------|--------|
+| Save JSON report to a file | `php lsp-checker.php --json > report.json` |
+| Save human result, hide progress | `php lsp-checker.php --quiet > result.txt` |
+| Save progress/summary to a log | `php lsp-checker.php 2> progress.log` (result stays on terminal) |
+| JSON only, no progress (e.g. CI) | `php lsp-checker.php --json --quiet 2>/dev/null` or `php lsp-checker.php --json 2>/dev/null > report.json` |
+| Result to file, progress to another file | `php lsp-checker.php --json > report.json 2> progress.log` |
+
+To pipe the JSON into another tool (e.g. [jq](https://jqlang.github.io/jq/)), use `--json --quiet` so only JSON goes to stdout:
+
+```bash
+php lsp-checker.php --json --quiet | jq 'length'
 ```
 
 Example output:
@@ -70,7 +98,7 @@ Total violations: 8
 ```
 
 - **Exit code**: `0` if all classes pass, `1` if any violation is found (suitable for CI).
-- **JSON report**: Full list of violations is written to stderr in JSON format.
+- **JSON report**: Use `--json` to write the full list of violations to stdout in JSON format.
 
 ## Architecture
 

@@ -2,6 +2,8 @@
 
 use Tivins\LSP\LiskovSubstitutionPrincipleChecker;
 use Tivins\LSP\ThrowsDetector;
+use Tivins\Process\FormatType;
+use Tivins\Process\StdWriter;
 
 require 'vendor/autoload.php';
 
@@ -15,37 +17,48 @@ $classes = [
     MyClass5::class,
 ];
 
+$format = FormatType::TEXT;
+if (in_array('--json', $argv)) {
+    $format = FormatType::JSON;
+}
+$verbose = !in_array('--quiet', $argv);
 
+$writer = new StdWriter($verbose, $format);
 $checker = new LiskovSubstitutionPrincipleChecker(new ThrowsDetector());
-echo "Checking Liskov Substitution Principle...\n\n";
+$writer->message("Checking Liskov Substitution Principle...", "\n\n");
 
 $totalViolations = 0;
 $failedClasses = 0;
 $allViolations = [];
 
 foreach ($classes as $class) {
-    $violations = $checker->check($class);
-    $ok = count($violations) === 0;
 
-    echo ($ok ? "[PASS]" : "[FAIL]") . " $class\n";
+    try {
+        $violations = $checker->check($class);
+        $ok = count($violations) === 0;
+    } catch (ReflectionException $e) {
+        $ok = false;
+        $violations[$class] = $e->getMessage();
+    }
+
+    $writer->content(($ok ? "[PASS]" : "[FAIL]") . " $class", FormatType::TEXT);
 
     if (!$ok) {
         $failedClasses++;
         $totalViolations += count($violations);
         $allViolations = array_merge($allViolations, $violations);
         foreach ($violations as $violation) {
-            echo "       -> $violation\n";
+            $writer->content("       -> $violation", FormatType::TEXT);
         }
     }
 }
 
-echo "\n";
-echo "Classes checked: " . count($classes) . "\n";
-echo "Passed: " . (count($classes) - $failedClasses) . " / " . count($classes) . "\n";
-echo "Total violations: $totalViolations\n";
+$writer->message("");
+$writer->message("Classes checked: " . count($classes));
+$writer->message("Passed: " . (count($classes) - $failedClasses) . " / " . count($classes));
+$writer->message("Total violations: $totalViolations");
 
-fwrite(STDERR, json_encode($allViolations, JSON_PRETTY_PRINT));
+$writer->content(json_encode($allViolations, JSON_PRETTY_PRINT), FormatType::JSON);
 
 // Exit with code 1 if there were any failures, 0 otherwise.
-$exitCode = $failedClasses > 0 ? 1 : 0;
-exit($exitCode);
+exit($failedClasses > 0 ? 1 : 0);
