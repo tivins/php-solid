@@ -2,11 +2,6 @@
 
 ## [Unreleased]
 
-## [0.3.1] - 2026-02-12
-
-### Fixed
-- **CI PHP 8.2** — PHPUnit contraint à `^11.0` (compatible PHP 8.2) au lieu de `12.5.x-dev` (PHP ≥ 8.3) pour que le workflow GitHub Actions passe sur la matrice PHP 8.2, 8.3, 8.4
-
 ### Added
 - **GitHub Actions CI** — workflow `.github/workflows/ci.yml` runs PHPUnit on push/PR for PHP 8.2, 8.3, 8.4
 - **PHPUnit tests** — `tests/LiskovSubstitutionPrincipleCheckerTest.php` uses the example classes (MyClass1–MyClass5) to assert expected LSP violations and passes
@@ -15,6 +10,11 @@
 ### Changed
 - **CLI** — `<directory>` is now required; without arguments the script prints usage and exits with code 2
 - Removed `--example` option; the built-in example is only used by unit tests (`vendor/bin/phpunit`)
+
+## [0.3.1] - 2026-02-12
+
+### Fixed
+- **CI PHP 8.2** — PHPUnit contraint à `^11.0` (compatible PHP 8.2) au lieu de `12.5.x-dev` (PHP ≥ 8.3) pour que le workflow GitHub Actions passe sur la matrice PHP 8.2, 8.3, 8.4
 
 ## [0.3.0] - 2026-02-12
 

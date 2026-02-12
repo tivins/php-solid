@@ -2,6 +2,10 @@
 
 A PHP proof-of-concept that detects **Liskov Substitution Principle (LSP)** violations, focusing on exception contracts between classes and their contracts (interfaces and parent classes).
 
+
+[![CI](https://github.com/tivins/poc-liskov-check/actions/workflows/ci.yml/badge.svg)](https://github.com/tivins/poc-liskov-check/actions/workflows/ci.yml)
+
+
 ## What it checks
 
 A subclass or implementation must not weaken the contract of its parent or interface. This POC verifies that **exception contracts** are respected:
