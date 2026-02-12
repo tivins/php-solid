@@ -7,11 +7,10 @@ use Tivins\Process\ClassFinder;
 use Tivins\Process\FormatType;
 use Tivins\Process\StdWriter;
 
-# We are in vendor\tivins\poc-liskov-check, so we need to load the autoload.php from the root project
+# Load autoload.php from the root project
 $autoload = 'vendor/autoload.php';
 if (!is_file($autoload)) {
-    // $autoload = __dir__ . '/../autoload.php';
-    throw new Exception('autoload.php not found. Current directory: ' . __dir__);
+    throw new Exception('"vendor/autoload.php" not found. Current directory: ' . __dir__);
 }
 require $autoload;
 
@@ -45,6 +44,8 @@ if (!is_dir($directory)) {
     fwrite(STDERR, "Error: '$directory' is not a valid directory.\n");
     exit(2);
 }
+
+# --- Main program -----------------------------------------------------------
 
 $finder  = new ClassFinder();
 $classes = $finder->findClassesInDirectory($directory);
