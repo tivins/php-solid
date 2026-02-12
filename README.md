@@ -39,11 +39,23 @@ composer require tivins/poc-liskov-check
 
 ## Usage
 
-1. Ensure your classes (and their contracts) are loadable (e.g. via autoload or `require`).
-2. Run the checker and pass the classes to check (see `lsp-checker.php` for the current setup):
+### Scan a directory
+
+Pass a directory path as argument. The checker will recursively find all PHP classes and check them:
 
 ```bash
-vendor/bin/lsp-checker.php
+php lsp-checker.php src/
+```
+
+The classes (and their contracts — interfaces, parent classes) must be loadable. If a `vendor/autoload.php` is found in or near the target directory, it is included automatically.
+
+### Run the built-in example
+
+Without arguments, the checker runs the built-in example (`liskov-principles-violation-example.php`). You can also request it explicitly:
+
+```bash
+php lsp-checker.php              # runs the built-in example (default)
+php lsp-checker.php --example    # same, explicit
 ```
 
 ### Output streams (stdout / stderr)
@@ -55,25 +67,27 @@ So you can capture only the result in a file and keep logs separate.
 
 ### Options
 
-| Option    | Description |
-|-----------|-------------|
-| `--quiet` | Suppress progress and summary on stderr. Only the result (stdout) is produced — useful for CI or when piping. |
-| `--json`  | Machine-readable output: write only the JSON report to stdout; no [PASS]/[FAIL] lines. |
+| Option      | Description |
+|-------------|-------------|
+| `<path>`    | Directory to scan recursively for PHP classes. If omitted, the built-in example is used. |
+| `--example` | Force the built-in example even if a path is provided. |
+| `--quiet`   | Suppress progress and summary on stderr. Only the result (stdout) is produced — useful for CI or when piping. |
+| `--json`    | Machine-readable output: write only the JSON report to stdout; no [PASS]/[FAIL] lines. |
 
 ### Pipes and redirections
 
 | Goal | Command |
 |------|--------|
-| Save JSON report to a file | `php lsp-checker.php --json > report.json` |
-| Save human result, hide progress | `php lsp-checker.php --quiet > result.txt` |
-| Save progress/summary to a log | `php lsp-checker.php 2> progress.log` (result stays on terminal) |
-| JSON only, no progress (e.g. CI) | `php lsp-checker.php --json --quiet 2>/dev/null` or `php lsp-checker.php --json 2>/dev/null > report.json` |
-| Result to file, progress to another file | `php lsp-checker.php --json > report.json 2> progress.log` |
+| Save JSON report to a file | `php lsp-checker.php src/ --json > report.json` |
+| Save human result, hide progress | `php lsp-checker.php src/ --quiet > result.txt` |
+| Save progress/summary to a log | `php lsp-checker.php src/ 2> progress.log` (result stays on terminal) |
+| JSON only, no progress (e.g. CI) | `php lsp-checker.php src/ --json --quiet 2>/dev/null` |
+| Result to file, progress to another file | `php lsp-checker.php src/ --json > report.json 2> progress.log` |
 
 To pipe the JSON into another tool (e.g. [jq](https://jqlang.github.io/jq/)), use `--json --quiet` so only JSON goes to stdout:
 
 ```bash
-php lsp-checker.php --json --quiet | jq 'length'
+php lsp-checker.php src/ --json --quiet | jq 'length'
 ```
 
 Example output:
@@ -103,10 +117,15 @@ Total violations: 8
 ## Architecture
 
 ```
-src/LSP/
-├── ThrowsDetector.php                      # Extracts @throws from docblocks; detects actual throws via AST
-├── LiskovSubstitutionPrincipleChecker.php  # Orchestrates checks against interfaces and parent class
-└── LspViolation.php                        # Value object (className, methodName, contractName, reason)
+src/
+├── LSP/
+│   ├── ThrowsDetector.php                      # Extracts @throws from docblocks; detects actual throws via AST
+│   ├── LiskovSubstitutionPrincipleChecker.php  # Orchestrates checks against interfaces and parent class
+│   └── LspViolation.php                        # Value object (className, methodName, contractName, reason)
+└── Process/
+    ├── ClassFinder.php                         # Recursively scans a directory for PHP classes (via AST)
+    ├── FormatType.php                          # Output format enum (TEXT / JSON)
+    └── StdWriter.php                           # stdout / stderr writer with format filtering
 
 lsp-checker.php                              # CLI entry point
 liskov-principles-violation-example.php      # Example classes (MyClass1–MyClass5) for testing
@@ -119,6 +138,9 @@ liskov-principles-violation-example.php      # Example classes (MyClass1–MyCla
 - **LiskovSubstitutionPrincipleChecker**  
   - `check(string $className)` — returns `LspViolation[]`.  
   - For each method that overrides/implements a contract method, compares both declared and actual throws to the contract and reports any that are not allowed.
+
+- **ClassFinder**  
+  - `findClassesInDirectory(string $directory)` — recursively scans a directory for `.php` files, extracts fully qualified class names via AST, loads the files, and returns the class list.
 
 ## Example cases (included)
 
@@ -134,7 +156,7 @@ liskov-principles-violation-example.php      # Example classes (MyClass1–MyCla
 
 - **Intra-class only** — only `$this->method()` calls within the same class are followed; calls to other classes or traits are not analyzed.
 - **No flow analysis** — e.g. `$e = new E(); throw $e;` is not resolved (we only handle `throw new X` and re-throws of catch variables).
-- **Reflection-based** — only works on loadable PHP code (files that can be parsed and reflected).
+- **Reflection-based** — only works on loadable PHP code (files that can be parsed and reflected). When scanning a directory, a `vendor/autoload.php` is loaded automatically if found nearby.
 - **Exception contracts only** — no checks yet for parameter types (contravariance) or return types (covariance).
 
 ## License

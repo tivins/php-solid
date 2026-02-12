@@ -2,26 +2,54 @@
 
 use Tivins\LSP\LiskovSubstitutionPrincipleChecker;
 use Tivins\LSP\ThrowsDetector;
+use Tivins\Process\ClassFinder;
 use Tivins\Process\FormatType;
 use Tivins\Process\StdWriter;
 
 require 'vendor/autoload.php';
 
-// Todo later: load classes from a directory/namespace/etc or a configuration file.
-require_once __dir__ . '/liskov-principles-violation-example.php';
-$classes = [
-    MyClass1::class,
-    MyClass2::class,
-    MyClass3::class,
-    MyClass4::class,
-    MyClass5::class,
-];
+// --- CLI options -----------------------------------------------------------
 
 $format = FormatType::TEXT;
 if (in_array('--json', $argv)) {
     $format = FormatType::JSON;
 }
-$verbose = !in_array('--quiet', $argv);
+$verbose  = !in_array('--quiet', $argv);
+$example  = in_array('--example', $argv);
+
+// First non-option argument = directory to scan.
+$directory = null;
+foreach (array_slice($argv, 1) as $arg) {
+    if (!str_starts_with($arg, '--')) {
+        $directory = $arg;
+        break;
+    }
+}
+
+// --- Resolve classes to check ----------------------------------------------
+
+if ($example || $directory === null) {
+    // Built-in example (backward-compatible default).
+    require_once __dir__ . '/liskov-principles-violation-example.php';
+    $classes = [
+        MyClass1::class,
+        MyClass2::class,
+        MyClass3::class,
+        MyClass4::class,
+        MyClass5::class,
+    ];
+} else {
+    if (!is_dir($directory)) {
+        fwrite(STDERR, "Error: '$directory' is not a valid directory.\n");
+        exit(2);
+    }
+    $finder  = new ClassFinder();
+    $classes = $finder->findClassesInDirectory($directory);
+    if (empty($classes)) {
+        fwrite(STDERR, "No PHP classes found in '$directory'.\n");
+        exit(0);
+    }
+}
 
 $writer = new StdWriter($verbose, $format);
 $checker = new LiskovSubstitutionPrincipleChecker(new ThrowsDetector());

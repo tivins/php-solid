@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.0] - 2026-02-12
+
+### Added
+- **Directory scanning** — pass a directory path as argument to recursively discover and check all PHP classes (`ClassFinder`)
+- `--example` CLI option to explicitly run the built-in example
+- `ClassFinder` class (`src/Process/ClassFinder.php`) — uses php-parser to extract FQCN from PHP files; auto-detects `vendor/autoload.php` in the target project
+
+### Changed
+- `lsp-checker.php` now accepts `<path>` as first positional argument; without arguments, the built-in example still runs (backward-compatible)
+
 ## [0.2.0] - 2026-02-12
 
 ### Added
