@@ -61,25 +61,32 @@ $writer->message("Checking Liskov Substitution Principle...", "\n\n");
 $totalViolations = 0;
 $failedClasses = 0;
 $allViolations = [];
+$allErrors = [];
 
 foreach ($classes as $class) {
 
+    $loadError = null;
     try {
         $violations = $checker->check($class);
-        $ok = count($violations) === 0;
     } catch (ReflectionException $e) {
-        $ok = false;
-        $violations[$class] = $e->getMessage();
+        $violations = [];
+        $loadError = $e->getMessage();
     }
 
+    $ok = ($loadError === null && count($violations) === 0);
     $writer->content(($ok ? "[PASS]" : "[FAIL]") . " $class", FormatType::TEXT);
 
     if (!$ok) {
         $failedClasses++;
-        $totalViolations += count($violations);
-        $allViolations = array_merge($allViolations, $violations);
-        foreach ($violations as $violation) {
-            $writer->content("       -> $violation", FormatType::TEXT);
+        if ($loadError !== null) {
+            $allErrors[] = ['class' => $class, 'message' => $loadError];
+            $writer->content("       -> Error: $loadError", FormatType::TEXT);
+        } else {
+            $totalViolations += count($violations);
+            $allViolations = array_merge($allViolations, $violations);
+            foreach ($violations as $violation) {
+                $writer->content("       -> $violation", FormatType::TEXT);
+            }
         }
     }
 }
@@ -89,7 +96,11 @@ $writer->message("Classes checked: " . count($classes));
 $writer->message("Passed: " . (count($classes) - $failedClasses) . " / " . count($classes));
 $writer->message("Total violations: $totalViolations");
 
-$writer->content(json_encode($allViolations, JSON_PRETTY_PRINT), FormatType::JSON);
+$jsonReport = [
+    'violations' => $allViolations,
+    'errors' => $allErrors,
+];
+$writer->content(json_encode($jsonReport, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), FormatType::JSON);
 
 // Exit with code 1 if there were any failures, 0 otherwise.
 exit($failedClasses > 0 ? 1 : 0);

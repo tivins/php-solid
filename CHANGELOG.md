@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-02-13
+
+### Added
+- **JSON report** — Load/reflection errors are now included in `--json` output under an `errors` key. The report shape is `{ "violations": [...], "errors": [{ "class": "...", "message": "..." }] }`.
+
 ### Added
 - **GitHub Actions CI** — workflow `.github/workflows/ci.yml` runs PHPUnit on push/PR for PHP 8.2, 8.3, 8.4
 - **PHPUnit tests** — `tests/LiskovSubstitutionPrincipleCheckerTest.php` uses the example classes (MyClass1–MyClass5) to assert expected LSP violations and passes
@@ -10,6 +15,11 @@
 ### Changed
 - **CLI** — `<directory>` is now required; without arguments the script prints usage and exits with code 2
 - Removed `--example` option; the built-in example is only used by unit tests (`vendor/bin/phpunit`)
+
+## [0.3.3] - 2026-02-13
+
+### Fixed
+- **CLI** — When a class triggers a `ReflectionException` (e.g. not loadable), the error is no longer mixed with LSP violations: it is shown as a single "Error: …" line, not added to the violation count, and excluded from the `--json` output so the report stays an array of violations only.
 
 ## [0.3.2] - 2026-02-12
 

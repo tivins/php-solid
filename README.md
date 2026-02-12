@@ -98,8 +98,12 @@ So you can capture only the result in a file and keep logs separate.
 To pipe the JSON into another tool (e.g. [jq](https://jqlang.github.io/jq/)), use `--json --quiet` so only JSON goes to stdout:
 
 ```bash
-vendor/bin/lsp-checker src/ --json --quiet | jq 'length'
+vendor/bin/lsp-checker src/ --json --quiet | jq '.violations | length'
 ```
+
+The JSON report is an object with two keys:
+- **`violations`** — array of LSP violations (each with `className`, `methodName`, `contractName`, `reason`).
+- **`errors`** — array of load/reflection errors (each with `class`, `message`) for classes that could not be checked.
 
 Example output:
 
@@ -122,8 +126,8 @@ Passed: 1 / 5
 Total violations: 8
 ```
 
-- **Exit code**: `0` if all classes pass, `1` if any violation is found (suitable for CI).
-- **JSON report**: Use `--json` to write the full list of violations to stdout in JSON format.
+- **Exit code**: `0` if all classes pass, `1` if any violation or load error is found (suitable for CI).
+- **JSON report**: Use `--json` to write a report to stdout: `{ "violations": [...], "errors": [...] }`.
 
 ## Architecture
 
