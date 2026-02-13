@@ -26,7 +26,7 @@ use ReflectionUnionType;
  */
 readonly class LiskovSubstitutionPrincipleChecker
 {
-    public function __construct(private ThrowsDetector $throwsDetector)
+    public function __construct(private ThrowsDetectorInterface $throwsDetector)
     {
     }
 

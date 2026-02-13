@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-02-14
+
+### Added
+- **ThrowsDetectorInterface** — Interface extracted from `ThrowsDetector` with `getDeclaredThrows()`, `getUseImportsForClass()` and `getActualThrows()` for dependency injection and test doubles.
+
 ## [0.10.0] - 2026-02-14
 
 ### Added

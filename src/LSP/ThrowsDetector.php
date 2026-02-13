@@ -14,7 +14,7 @@ use PhpParser\ParserFactory;
 use ReflectionClass;
 use ReflectionMethod;
 
-class ThrowsDetector
+class ThrowsDetector implements ThrowsDetectorInterface
 {
     /** @var array<string, Stmt[]> Cache of parsed ASTs keyed by file path */
     private array $astCache = [];
