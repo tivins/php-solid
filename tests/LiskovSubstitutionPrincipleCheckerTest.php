@@ -96,9 +96,17 @@ final class LiskovSubstitutionPrincipleCheckerTest extends TestCase
         $this->assertStringContainsString('AST', $reasons);
     }
 
+    public function testMyClass6HasNoViolationsWithCovariantReturnType(): void
+    {
+        $checker = $this->createChecker();
+        $violations = $checker->check(\MyClass6::class);
+
+        $this->assertEmpty($violations, 'MyClass6 should not violate LSP (covariant return type is allowed)');
+    }
+
     public function testAllExampleClassesAreCheckedWithoutReflectionException(): void
     {
-        $classes = [\MyClass1::class, \MyClass2::class, \MyClass2b::class, \MyClass3::class, \MyClass4::class, \MyClass5::class];
+        $classes = [\MyClass1::class, \MyClass2::class, \MyClass2b::class, \MyClass3::class, \MyClass4::class, \MyClass5::class, \MyClass6::class];
         $checker = $this->createChecker();
 
         foreach ($classes as $className) {

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-02-13
+
+### Added
+- **Return type covariance check** — `LiskovSubstitutionPrincipleChecker` now validates that overriding methods keep a covariant return type with respect to interface/parent contracts and reports an explicit LSP violation when incompatible.
+- **Covariance example and test** — Added `MyInterface6`/`MyClass6` example plus PHPUnit coverage to ensure a narrower return type in the implementation is accepted.
+
 ## [0.6.0] - 2026-02-13
 
 ### Fixed

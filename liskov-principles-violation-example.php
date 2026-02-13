@@ -172,3 +172,21 @@ class MyClass5 implements MyInterface5
         }
     }
 }
+
+# ------------------------------------------------------------
+# Example 6: Return type covariance (LSP-compliant)
+# Contract returns RuntimeException, implementation returns a subtype.
+# ------------------------------------------------------------
+
+interface MyInterface6
+{
+    public function createException(): RuntimeException;
+}
+
+class MyClass6 implements MyInterface6
+{
+    public function createException(): UnexpectedValueException
+    {
+        return new UnexpectedValueException("more specific return type");
+    }
+}
