@@ -109,9 +109,13 @@ readonly class LiskovSubstitutionPrincipleChecker
         $classThrowsDeclared = $this->throwsDetector->getDeclaredThrows($classMethod);
         $classThrowsActual = $this->throwsDetector->getActualThrows($classMethod);
 
+        // Get use imports for proper FQCN resolution of docblock @throws short names
+        $classUseImports = $this->throwsDetector->getUseImportsForClass($class);
+        $contractUseImports = $this->throwsDetector->getUseImportsForClass($contract);
+
         // Violation if the class DECLARES throws not allowed by the contract (strict or subclass)
         foreach ($classThrowsDeclared as $exceptionType) {
-            if ($this->isExceptionAllowedByContract($exceptionType, $contractThrows, $class, $contract)) {
+            if ($this->isExceptionAllowedByContract($exceptionType, $contractThrows, $class, $contract, $classUseImports, $contractUseImports)) {
                 continue;
             }
             $violations[] = new LspViolation(
@@ -127,7 +131,7 @@ readonly class LiskovSubstitutionPrincipleChecker
 
         // Violation if the class ACTUALLY throws exceptions not allowed by the contract (strict or subclass)
         foreach ($classThrowsActual as $exceptionType) {
-            if ($this->isExceptionAllowedByContract($exceptionType, $contractThrows, $class, $contract)) {
+            if ($this->isExceptionAllowedByContract($exceptionType, $contractThrows, $class, $contract, $classUseImports, $contractUseImports)) {
                 continue;
             }
             $violations[] = new LspViolation(
@@ -145,20 +149,28 @@ readonly class LiskovSubstitutionPrincipleChecker
     }
 
     /**
-     * Resolve an exception type name to its FQCN using the class namespace.
-     * Ensures a leading backslash for global namespace so class_exists/is_subclass_of resolve correctly.
+     * Resolve an exception type name to its FQCN using use imports, class namespace,
+     * and global namespace as fallback.
      *
-     * For unqualified names (e.g. "RuntimeException") in a namespaced class, we check whether
-     * a class with that name actually exists in the namespace. If not, we fall back to the global
-     * namespace. This correctly handles standard PHP exceptions (Exception, RuntimeException, etc.)
-     * used with short names inside namespaced code.
+     * Resolution order (matching PHP's own name resolution rules):
+     * 1. Multi-segment name (contains \) → already a namespace path, treat as FQCN
+     * 2. Use imports → if the short name matches a `use` import, resolve to its FQCN
+     * 3. Current namespace → if a class with that name exists in the same namespace
+     * 4. Global namespace → fallback for standard PHP exceptions (Exception, RuntimeException, etc.)
+     *
+     * @param array<string, string> $useImports Short name → FQCN map from `use` statements
      */
-    private function resolveExceptionFqcn(string $type, ReflectionClass $class): string
+    private function resolveExceptionFqcn(string $type, ReflectionClass $class, array $useImports = []): string
     {
         $type = ltrim($type, '\\');
         // Multi-segment name (e.g. "Foo\BarException") → already a namespace path, treat as FQCN
         if (str_contains($type, '\\')) {
             return '\\' . $type;
+        }
+        // Check use imports (handles short names from docblocks like @throws MyException
+        // when there is a `use Some\Namespace\MyException;` in the file)
+        if (isset($useImports[$type])) {
+            return '\\' . ltrim($useImports[$type], '\\');
         }
         // Unqualified name in a namespaced class: resolve with class_exists check
         $namespace = $class->getNamespaceName();
@@ -176,19 +188,24 @@ readonly class LiskovSubstitutionPrincipleChecker
     /**
      * Return true if the thrown exception type is allowed by the contract:
      * same type or a subclass of any exception declared in the contract (LSP-compliant).
+     *
+     * @param array<string, string> $classUseImports    Use imports from the class file
+     * @param array<string, string> $contractUseImports Use imports from the contract file
      */
     private function isExceptionAllowedByContract(
         string $thrownType,
         array $contractThrows,
         ReflectionClass $class,
         ReflectionClass $contract,
+        array $classUseImports = [],
+        array $contractUseImports = [],
     ): bool {
         if (empty($contractThrows)) {
             return false;
         }
-        $thrownFqcn = $this->resolveExceptionFqcn($thrownType, $class);
+        $thrownFqcn = $this->resolveExceptionFqcn($thrownType, $class, $classUseImports);
         foreach ($contractThrows as $contractType) {
-            $contractFqcn = $this->resolveExceptionFqcn($contractType, $contract);
+            $contractFqcn = $this->resolveExceptionFqcn($contractType, $contract, $contractUseImports);
             if ($thrownFqcn === $contractFqcn) {
                 return true;
             }

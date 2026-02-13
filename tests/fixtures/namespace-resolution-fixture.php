@@ -330,4 +330,48 @@ namespace Tivins\LSP\Tests\Fixtures\NsResolution {
             throw new \RuntimeException('test');
         }
     }
+
+    // ---------------------------------------------------------------
+    // Scenario 14: Contract uses short name for a custom exception
+    // imported via `use`. The @throws tag says "CustomNsException"
+    // (not the FQCN), relying on the `use` import at the top of this
+    // namespace block. The checker must resolve the short name through
+    // the use import table to avoid a false positive.
+    // ---------------------------------------------------------------
+
+    interface ContractShortCustomException
+    {
+        /**
+         * @throws CustomNsException
+         */
+        public function execute(): void;
+    }
+
+    class ClassThrowsShortCustomException implements ContractShortCustomException
+    {
+        /**
+         * @throws CustomNsException
+         */
+        public function execute(): void
+        {
+            throw new CustomNsException('test');
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Scenario 15: Contract uses short name for a custom exception
+    // via `use` import. Class throws a subclass of that exception.
+    // Hierarchy check must work even when the contract uses a short name.
+    // ---------------------------------------------------------------
+
+    class ClassThrowsSubOfShortCustomException implements ContractShortCustomException
+    {
+        /**
+         * @throws \Tivins\LSP\Tests\Fixtures\NsResolution\Exceptions\SubCustomNsException
+         */
+        public function execute(): void
+        {
+            throw new \Tivins\LSP\Tests\Fixtures\NsResolution\Exceptions\SubCustomNsException('test');
+        }
+    }
 }

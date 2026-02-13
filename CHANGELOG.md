@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-13
+
+### Fixed
+- **Docblock `@throws` with short names via `use` import** — The checker now correctly resolves short exception names in `@throws` tags (e.g. `@throws InvalidEntityTypeException`) when the exception class is imported via a `use` statement. Previously, only FQCN and global PHP exceptions were resolved correctly, causing false positives for custom exceptions referenced by their short name in interface/parent contracts.
+
+### Added
+- `ThrowsDetector::getUseImportsForClass()` — Extracts the `use` import map (short name → FQCN) from the AST of the file containing a class or interface. Used internally to resolve docblock `@throws` short names.
+- **Namespace resolution test scenarios 14–15** — Contract uses short custom exception name via `use` import (exact match and subclass hierarchy).
+- **ThrowsDetector unit tests** for `getUseImportsForClass()` (import map extraction, namespace isolation).
+
 ## [0.5.0] - 2026-02-13
 
 ### Added

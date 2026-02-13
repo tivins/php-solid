@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tivins\LSP\Tests;
 
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 use ReflectionMethod;
 use Tivins\LSP\LiskovSubstitutionPrincipleChecker;
 use Tivins\LSP\LspViolation;
@@ -363,6 +364,84 @@ final class NamespaceResolutionTest extends TestCase
             'RuntimeException',
             $declaredThrows,
             'getDeclaredThrows should return short name as-is (no namespace resolution in docblock parsing)'
+        );
+    }
+
+    // ================================================================
+    //  Checker tests: use import resolution for docblock @throws
+    // ================================================================
+
+    /**
+     * Scenario 14: Contract uses short name "CustomNsException" in @throws,
+     * imported via `use`. The checker must resolve it through the use import
+     * table to match the actual FQCN thrown in the class → no violation.
+     */
+    public function testContractShortCustomExceptionViaUseImportNoViolation(): void
+    {
+        $checker = $this->createChecker();
+        $violations = $checker->check(\Tivins\LSP\Tests\Fixtures\NsResolution\ClassThrowsShortCustomException::class);
+
+        $this->assertEmpty(
+            $violations,
+            'No violation expected: contract @throws uses short name resolved via use import; '
+            . 'class throws the same exception. The checker must resolve both to the same FQCN.'
+        );
+    }
+
+    /**
+     * Scenario 15: Contract uses short name "CustomNsException" via use import;
+     * class throws SubCustomNsException (a subclass). Hierarchy check must work
+     * even when the contract side uses a short name resolved via use import.
+     */
+    public function testSubclassOfShortCustomExceptionViaUseImportNoViolation(): void
+    {
+        $checker = $this->createChecker();
+        $violations = $checker->check(\Tivins\LSP\Tests\Fixtures\NsResolution\ClassThrowsSubOfShortCustomException::class);
+
+        $this->assertEmpty(
+            $violations,
+            'No violation expected: contract @throws uses short name (via use import) for CustomNsException; '
+            . 'class throws SubCustomNsException which is a subclass. Hierarchy check must work.'
+        );
+    }
+
+    // ================================================================
+    //  ThrowsDetector tests: use import extraction
+    // ================================================================
+
+    /**
+     * getUseImportsForClass should extract the use import map from a namespaced file.
+     */
+    public function testGetUseImportsForClassReturnsImportMap(): void
+    {
+        $detector = new ThrowsDetector();
+        $class = new ReflectionClass(\Tivins\LSP\Tests\Fixtures\NsResolution\ClassFqcn::class);
+
+        $imports = $detector->getUseImportsForClass($class);
+
+        $this->assertArrayHasKey('CustomNsException', $imports);
+        $this->assertSame(
+            'Tivins\LSP\Tests\Fixtures\NsResolution\Exceptions\CustomNsException',
+            $imports['CustomNsException'],
+            'Use import should map short name to FQCN (without leading backslash)'
+        );
+    }
+
+    /**
+     * getUseImportsForClass on a different namespace block should return
+     * the imports specific to that block.
+     */
+    public function testGetUseImportsForClassInDifferentNamespace(): void
+    {
+        $detector = new ThrowsDetector();
+        $class = new ReflectionClass(\Tivins\LSP\Tests\Fixtures\NsResolution\OtherNs\ContractOtherNs::class);
+
+        $imports = $detector->getUseImportsForClass($class);
+
+        // The OtherNs namespace block has no use imports
+        $this->assertEmpty(
+            $imports,
+            'OtherNs namespace block has no use imports'
         );
     }
 }

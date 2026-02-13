@@ -11,12 +11,16 @@ use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\NodeVisitorAbstract;
 use PhpParser\ParserFactory;
+use ReflectionClass;
 use ReflectionMethod;
 
 class ThrowsDetector
 {
     /** @var array<string, Stmt[]> Cache of parsed ASTs keyed by file path */
     private array $astCache = [];
+
+    /** @var array<string, array<string, string>> Cache of use imports keyed by class name */
+    private array $useImportsCache = [];
 
     /**
      * Retourne la liste des exceptions déclarées dans le "@throws" du docblock.
@@ -53,6 +57,81 @@ class ThrowsDetector
         }
 
         return array_unique($throws);
+    }
+
+    /**
+     * Extract the use import map for the file and namespace containing the given class.
+     *
+     * Returns a map of short alias → FQCN (without leading \).
+     * For example, `use Foo\Bar\BazException;` produces ['BazException' => 'Foo\Bar\BazException'].
+     * Aliased imports like `use Foo\Bar as Baz;` produce ['Baz' => 'Foo\Bar'].
+     *
+     * @return array<string, string> short name → FQCN (without leading \)
+     */
+    public function getUseImportsForClass(ReflectionClass $class): array
+    {
+        $className = $class->getName();
+        if (isset($this->useImportsCache[$className])) {
+            return $this->useImportsCache[$className];
+        }
+
+        $filename = $class->getFileName();
+        if ($filename === false) {
+            return $this->useImportsCache[$className] = [];
+        }
+
+        $stmts = $this->parseFile($filename);
+        if ($stmts === null) {
+            return $this->useImportsCache[$className] = [];
+        }
+
+        $namespace = $class->getNamespaceName();
+        return $this->useImportsCache[$className] = $this->extractUseImports($stmts, $namespace);
+    }
+
+    /**
+     * Extract use imports from the AST for the given namespace scope.
+     *
+     * Handles both bracketed (`namespace Foo { use ...; }`) and non-bracketed
+     * (`namespace Foo; use ...;`) syntax, as well as files without namespaces.
+     *
+     * @param Stmt[] $stmts
+     * @return array<string, string> short name → FQCN (without leading \)
+     */
+    private function extractUseImports(array $stmts, string $namespace): array
+    {
+        $imports = [];
+
+        foreach ($stmts as $stmt) {
+            // Namespace block: look inside the matching one
+            if ($stmt instanceof Stmt\Namespace_) {
+                $nsName = $stmt->name ? $stmt->name->toString() : '';
+                if ($nsName === $namespace) {
+                    foreach ($stmt->stmts as $nsStmt) {
+                        if ($nsStmt instanceof Stmt\Use_ && $nsStmt->type === Stmt\Use_::TYPE_NORMAL) {
+                            foreach ($nsStmt->uses as $use) {
+                                $fqcn = $use->name->toString();
+                                $alias = $use->getAlias()->toString();
+                                $imports[$alias] = $fqcn;
+                            }
+                        }
+                    }
+                    return $imports;
+                }
+                continue;
+            }
+
+            // Top-level use (file without namespace)
+            if ($namespace === '' && $stmt instanceof Stmt\Use_ && $stmt->type === Stmt\Use_::TYPE_NORMAL) {
+                foreach ($stmt->uses as $use) {
+                    $fqcn = $use->name->toString();
+                    $alias = $use->getAlias()->toString();
+                    $imports[$alias] = $fqcn;
+                }
+            }
+        }
+
+        return $imports;
     }
 
     /**
