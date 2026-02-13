@@ -138,12 +138,14 @@ class ThrowsDetector
      * Détecte les exceptions réellement lancées dans le corps de la méthode
      * via analyse AST (nikic/php-parser).
      *
-     * Suit récursivement les appels internes ($this->method()) au sein de la même classe.
+     * Suit récursivement les appels internes ($this->method()) au sein de la même classe,
+     * ainsi que les appels statiques cross-classe (ClassName::method()).
      * Gère les cas suivants :
      * - throw new Exception() (direct)
      * - throw conditionnel (if/else)
      * - re-throw dans un catch (catch (E $e) { throw $e; })
      * - throw transitif via $this->privateMethod()
+     * - throw transitif via ClassName::staticMethod() (cross-class)
      *
      * @return string[] Noms des classes d'exception (normalisés sans le \ initial)
      */
@@ -292,12 +294,14 @@ class ThrowsDetector
 
     /**
      * Extract all exception types thrown within a method node, following
-     * $this->method() calls recursively within the same class.
+     * $this->method() calls recursively within the same class and
+     * ClassName::method() static calls across class boundaries.
      *
      * Handles:
      * - throw new ClassName() → extracts ClassName
      * - catch (ExType $e) { ... throw $e; } → extracts ExType from the catch clause
      * - $this->otherMethod() → recursively analyses otherMethod in the same class
+     * - ClassName::staticMethod() → recursively analyses the static method in the external class
      *
      * @param Stmt\ClassMethod             $methodNode The method to analyze
      * @param Stmt\Class_|Stmt\Enum_|null  $classNode  The enclosing class (for resolving $this-> calls)
@@ -311,25 +315,33 @@ class ThrowsDetector
     ): array {
         $methodName = $methodNode->name->toString();
 
-        // Guard against circular calls (A -> B -> A)
-        if (isset($visited[$methodName])) {
+        // Build a class-qualified key to prevent infinite recursion across classes
+        $classId = ($classNode !== null && isset($classNode->namespacedName))
+            ? $classNode->namespacedName->toString()
+            : '';
+        $visitedKey = $classId . '::' . $methodName;
+
+        // Guard against circular calls (A::x -> B::y -> A::x)
+        if (isset($visited[$visitedKey])) {
             return [];
         }
-        $visited[$methodName] = true;
+        $visited[$visitedKey] = true;
 
         $throws = [];
         $internalCalls = [];
+        $externalCalls = [];
 
         // Build a map of catch variable names → their caught exception types
         // so we can resolve re-throws like `throw $e;`
         $catchVariableTypes = [];
 
         $traverser = new NodeTraverser();
-        $traverser->addVisitor(new class($throws, $catchVariableTypes, $internalCalls) extends NodeVisitorAbstract {
+        $traverser->addVisitor(new class($throws, $catchVariableTypes, $internalCalls, $externalCalls) extends NodeVisitorAbstract {
             public function __construct(
                 private array &$throws,
                 private array &$catchVariableTypes,
                 private array &$internalCalls,
+                private array &$externalCalls,
             ) {
             }
 
@@ -353,6 +365,15 @@ class ThrowsDetector
                     && $node->name instanceof Node\Identifier
                 ) {
                     $this->internalCalls[] = $node->name->toString();
+                }
+
+                // Detect ClassName::methodName() static calls for cross-class analysis
+                if (
+                    $node instanceof Expr\StaticCall
+                    && $node->class instanceof Node\Name
+                    && $node->name instanceof Node\Identifier
+                ) {
+                    $this->externalCalls[] = [$node->class->toString(), $node->name->toString()];
                 }
 
                 // Detect throw statements (Stmt\Throw_ in php-parser v5 for `throw expr;`)
@@ -397,6 +418,75 @@ class ThrowsDetector
                         $this->extractThrowTypesRecursive($calledNode, $classNode, $visited),
                     );
                 }
+            }
+        }
+
+        // Recursively follow ClassName::methodName() static calls to external classes
+        $seenExternal = [];
+        foreach ($externalCalls as [$calledClass, $calledMethod]) {
+            $externalKey = $calledClass . '::' . $calledMethod;
+            if (isset($seenExternal[$externalKey])) {
+                continue;
+            }
+            $seenExternal[$externalKey] = true;
+
+            $calledClassNorm = ltrim($calledClass, '\\');
+
+            // Self-referencing static call → treat as internal call
+            if ($classNode !== null && isset($classNode->namespacedName)
+                && $calledClassNorm === $classNode->namespacedName->toString()) {
+                $calledNode = $this->findMethodInClass($classNode, $calledMethod);
+                if ($calledNode !== null) {
+                    $throws = array_merge(
+                        $throws,
+                        $this->extractThrowTypesRecursive($calledNode, $classNode, $visited),
+                    );
+                }
+                continue;
+            }
+
+            if (!class_exists($calledClassNorm) && !interface_exists($calledClassNorm)) {
+                continue;
+            }
+
+            try {
+                $refClass = new ReflectionClass($calledClassNorm);
+                if (!$refClass->hasMethod($calledMethod)) {
+                    continue;
+                }
+                $refMethod = $refClass->getMethod($calledMethod);
+                $filename = $refMethod->getFileName();
+                if ($filename === false) {
+                    continue;
+                }
+
+                $extStmts = $this->parseFile($filename);
+                if ($extStmts === null) {
+                    continue;
+                }
+
+                $extMethodNode = $this->findMethodNode(
+                    $extStmts,
+                    $calledMethod,
+                    $refMethod->getStartLine(),
+                    $refMethod->getEndLine(),
+                );
+                if ($extMethodNode === null) {
+                    continue;
+                }
+
+                $extClassNode = $this->findEnclosingClass(
+                    $extStmts,
+                    $refMethod->getStartLine(),
+                    $refMethod->getEndLine(),
+                );
+
+                $throws = array_merge(
+                    $throws,
+                    $this->extractThrowTypesRecursive($extMethodNode, $extClassNode, $visited),
+                );
+            } catch (\ReflectionException) {
+                continue;
             }
         }
 

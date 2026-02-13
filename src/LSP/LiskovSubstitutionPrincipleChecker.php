@@ -19,7 +19,7 @@ use ReflectionUnionType;
  *
  * Currently checks:
  * - Exception contract violations via docblock (@throws not declared in parent/interface)
- * - Exception contract violations via AST (actual throw statements not allowed by contract)
+ * - Exception contract violations via AST (actual throw statements not allowed by contract, including cross-class static calls)
  * - Exception hierarchy: throwing a subclass of a contract-allowed exception is allowed (LSP-compliant).
  * - Return type covariance (child return type must be equal or more specific than the contract return type)
  * - Parameter type contravariance (child parameter types must be equal or wider than contract parameter types)

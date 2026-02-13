@@ -19,6 +19,7 @@ use Tivins\LSP\ThrowsDetector;
  * - MyClass4: interface has no @throws, code throws (no @throws docblock) → AST violation
  * - MyClass5: interface has no @throws, code throws via private method → AST violation
  * - MyClass2b: interface has @throws RuntimeException, implementation throws UnexpectedValueException (subclass) → no violation (exception hierarchy)
+ * - MyClass9: interface has no @throws, implementation calls static method on external class that throws → cross-class AST violation
  */
 final class LiskovSubstitutionPrincipleCheckerTest extends TestCase
 {
@@ -120,6 +121,17 @@ final class LiskovSubstitutionPrincipleCheckerTest extends TestCase
         $this->assertEmpty($violations, 'MyClass8 should not violate LSP (identical parameter types are trivially valid)');
     }
 
+    public function testMyClass9HasViolationsFromAstCrossClass(): void
+    {
+        $checker = $this->createChecker();
+        $violations = $checker->check(\MyClass9::class);
+
+        $this->assertNotEmpty($violations, 'MyClass9 should violate LSP (cross-class static call throws, AST detection)');
+        $reasons = implode(' ', array_map(fn(LspViolation $v) => $v->reason, $violations));
+        $this->assertStringContainsString('RuntimeException', $reasons);
+        $this->assertStringContainsString('AST', $reasons);
+    }
+
     /**
      * Test that the contravariance check detects a violation when the implementation
      * narrows a parameter type (e.g. contract accepts Exception, child accepts RuntimeException).
@@ -188,7 +200,7 @@ final class LiskovSubstitutionPrincipleCheckerTest extends TestCase
 
     public function testAllExampleClassesAreCheckedWithoutReflectionException(): void
     {
-        $classes = [\MyClass1::class, \MyClass2::class, \MyClass2b::class, \MyClass3::class, \MyClass4::class, \MyClass5::class, \MyClass6::class, \MyClass7::class, \MyClass8::class];
+        $classes = [\MyClass1::class, \MyClass2::class, \MyClass2b::class, \MyClass3::class, \MyClass4::class, \MyClass5::class, \MyClass6::class, \MyClass7::class, \MyClass8::class, \MyClass9::class];
         $checker = $this->createChecker();
 
         foreach ($classes as $className) {

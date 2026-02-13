@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-02-13
+
+### Added
+- **Cross-class exception detection** — `ThrowsDetector` now follows `ClassName::method()` static calls across class boundaries to detect exceptions thrown transitively by external methods. Previously, only `$this->method()` calls within the same class were followed. This enables detection of LSP violations like Example 9 where an exception is thrown in a helper class's static method.
+- **Example 9** — `MyInterface9`/`MyClass9`/`MyClass9Helper`: implementation delegates to a static method on another class that throws `RuntimeException` (cross-class AST detection).
+
 ## [0.8.0] - 2026-02-13
 
 ### Added

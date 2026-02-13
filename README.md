@@ -29,6 +29,7 @@ Violations are reported in two ways:
   - Conditional throws: `if (...) throw new E()`
   - Re-throws in catch: `catch (E $e) { throw $e; }`
   - **Transitive throws** — follows `$this->method()` calls within the same class (e.g. public method calling a private method that throws).
+  - **Cross-class static calls** — follows `ClassName::method()` static calls to detect exceptions thrown transitively in external classes.
 - **Contract comparison** — checks against all implemented interfaces and the parent class.
 - **Return type covariance** — validates that overriding methods keep LSP-compliant covariant return types.
 - **Parameter type contravariance** — validates that overriding methods do not narrow parameter types (preconditions must not be strengthened).
@@ -147,12 +148,12 @@ src/
     └── StdWriter.php                           # stdout / stderr writer with format filtering
 
 lsp-checker                                  # CLI entry point
-liskov-principles-violation-example.php      # Example classes (MyClass1–MyClass8), used by PHPUnit tests
+liskov-principles-violation-example.php      # Example classes (MyClass1–MyClass9), used by PHPUnit tests
 ```
 
 - **ThrowsDetector**  
   - `getDeclaredThrows(ReflectionMethod)` — returns exception types from `@throws` in the docblock.  
-  - `getActualThrows(ReflectionMethod)` — returns exception types from the method body (and transitively from `$this->method()` in the same class) via AST.
+  - `getActualThrows(ReflectionMethod)` — returns exception types from the method body (and transitively from `$this->method()` in the same class and `ClassName::method()` static calls across classes) via AST.
 
 - **LiskovSubstitutionPrincipleChecker**  
   - `check(string $className)` — returns `LspViolation[]`.  
@@ -173,10 +174,11 @@ liskov-principles-violation-example.php      # Example classes (MyClass1–MyCla
 | MyClass6 | Return `RuntimeException` | PASS | Returns `UnexpectedValueException` (covariant subtype) |
 | MyClass7 | Param `RuntimeException` | PASS | Accepts `Exception` (contravariant supertype) |
 | MyClass8 | Params `string`, `int` | PASS | Identical parameter types (trivially valid) |
+| MyClass9 | No throws     | FAIL | Throws via `MyClass9Helper::doSomethingRisky()` (cross-class AST) |
 
 ## Limitations
 
-- **Intra-class only** — only `$this->method()` calls within the same class are followed; calls to other classes or traits are not analyzed.
+- **Limited cross-class analysis** — `$this->method()` calls within the same class and `ClassName::method()` static calls to external classes are followed. However, dynamic method calls on objects (e.g. `$obj->method()`) and trait methods are not analyzed.
 - **No flow analysis** — e.g. `$e = new E(); throw $e;` is not resolved (we only handle `throw new X` and re-throws of catch variables).
 - **Reflection-based** — only works on loadable PHP code (files that can be parsed and reflected). When scanning a directory, a `vendor/autoload.php` is loaded automatically if found nearby.
 - **Parameter contravariance via Reflection only** — parameter type contravariance is checked on loaded classes. Since PHP itself enforces parameter compatibility at class load time, most violations are caught by the engine before the checker runs. The check is still useful as part of a comprehensive LSP report.

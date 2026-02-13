@@ -228,3 +228,53 @@ class MyClass8 implements MyInterface8
         return strtoupper($input);
     }
 }
+
+# ------------------------------------------------------------
+# Example 9: Exception thrown in another class
+# The exception is thrown in a static method of another class, which is not allowed.
+# Only AST analysis can catch this violation.
+# ------------------------------------------------------------
+
+interface MyInterface9
+{
+    public function doSomething(): void;
+}
+
+class MyClass9Helper
+{
+    public static function doSomethingRisky(): void
+    {
+        throw new RuntimeException("runtime exception is thrown");
+    }
+}
+
+class MyClass9 implements MyInterface9
+{
+    public function doSomething(): void
+    {
+        MyClass9Helper::doSomethingRisky();
+    }
+}
+
+# ------------------------------------------------------------
+# Example 10: Exception thrown in another class
+# ------------------------------------------------------------
+
+interface MyInterface10
+{
+    public function doSomething(): void;
+}
+class MyClass10Helper
+{
+    public function doSomethingRisky(): void
+    {
+        throw new RuntimeException("runtime exception is thrown");
+    }
+}
+class MyClass10 implements MyInterface10
+{
+    public function doSomething(): void
+    {
+        (new MyClass10Helper())->doSomethingRisky();
+    }
+}
