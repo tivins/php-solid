@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-13
+
+### Added
+- **CLI integration tests** (`tests/CliIntegrationTest.php`) — Exit code (0/1/2), usage and error messages on stderr, JSON output structure (`violations`, `errors`), violation object shape (`className`, `methodName`, `contractName`, `reason`), and `--quiet` behaviour.
+- **ThrowsDetector unit tests** (`tests/ThrowsDetectorTest.php`) — Docblock parsing (no docblock, single @throws, FQCN, pipe-separated, description text), AST detection (direct throw, rethrow in catch, transitive private method), and normalized/unique return values.
+- **ClassFinder unit tests** (`tests/ClassFinderTest.php`) — Invalid directory (InvalidArgumentException), empty directory, one-class directory, implicit exclusion of PHP files without classes, sorted result, and autoload inclusion when scanning under project.
+
 ## [0.4.0] - 2026-02-13
 
 ### Added
