@@ -75,9 +75,11 @@ composer require tivins/poc-liskov-check
 
 ## Usage
 
+You can run the checker in two ways: by passing a directory, or by using a configuration file.
+
 ### Scan a directory
 
-Pass a directory path as argument. The checker will recursively find all PHP classes and check them:
+Pass a directory path as the first argument. The checker builds a `Config` with that directory and recursively finds all PHP classes to check:
 
 ```bash
 vendor/bin/lsp-checker src/
@@ -85,11 +87,41 @@ vendor/bin/lsp-checker src/
 
 The classes (and their contracts — interfaces, parent classes) must be loadable. If a `vendor/autoload.php` is found in or near the target directory, it is included automatically.
 
-Without a directory, the script prints usage and exits:
+### Configuration file
+
+Use `--config <file>` to load a PHP file that **returns** a `Tivins\LSP\Config` instance. The config defines which directories and files to scan, and optional exclusions:
+
+```bash
+vendor/bin/lsp-checker --config lsp-config.php
+```
+
+Example config file (e.g. `lsp-config.php`):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Tivins\LSP\Config;
+
+return (new Config())
+    ->addDirectory('path/to/folder')
+    ->excludeDirectory('path/to/folder/excluded')
+    ->addFile('path/to/file')
+    ->excludeFile('path/to/excluded/file');
+```
+
+- **`addDirectory($path)`** — Recursively scan a directory for PHP classes.
+- **`addFile($path)`** — Include a single PHP file.
+- **`excludeDirectory($path)`** — Skip that directory and its contents when scanning.
+- **`excludeFile($path)`** — Skip that file even if it would be included by a directory.
+
+Without a directory and without `--config`, the script prints usage and exits:
 
 ```bash
 vendor/bin/lsp-checker
-# Usage: lsp-checker <directory> [--json] [--quiet]
+# Usage: lsp-checker <directory> [--config <file>] [--json] [--quiet]
+#        lsp-checker --config <file> [--json] [--quiet]
 #   ...
 ```
 
@@ -111,11 +143,12 @@ So you can capture only the result in a file and keep logs separate.
 
 ### Options
 
-| Option    | Description |
-|-----------|-------------|
-| `<path>`  | **Required.** Directory to scan recursively for PHP classes. |
-| `--quiet` | Suppress progress and summary on stderr. Only the result (stdout) is produced — useful for CI or when piping. |
-| `--json`  | Machine-readable output: write only the JSON report to stdout; no [PASS]/[FAIL] lines. |
+| Option           | Description |
+|------------------|-------------|
+| `<directory>`    | Directory to scan. **Required** when not using `--config`. |
+| `--config <file>` | Path to a PHP file that returns a `Tivins\LSP\Config` instance. When present, `<directory>` is not required. |
+| `--quiet`        | Suppress progress and summary on stderr. Only the result (stdout) is produced — useful for CI or when piping. |
+| `--json`         | Machine-readable output: write only the JSON report to stdout; no [PASS]/[FAIL] lines. |
 
 ### Pipes and redirections
 
@@ -126,6 +159,7 @@ So you can capture only the result in a file and keep logs separate.
 | Save progress/summary to a log | `vendor/bin/lsp-checker src/ 2> progress.log` (result stays on terminal) |
 | JSON only, no progress (e.g. CI) | `vendor/bin/lsp-checker src/ --json --quiet 2>/dev/null` |
 | Result to file, progress to another file | `vendor/bin/lsp-checker src/ --json > report.json 2> progress.log` |
+| Use a config file | `vendor/bin/lsp-checker --config lsp-config.php` |
 
 To pipe the JSON into another tool (e.g. [jq](https://jqlang.github.io/jq/)), use `--json --quiet` so only JSON goes to stdout:
 
@@ -165,7 +199,7 @@ Total violations: 8
 
 - **Limited cross-class analysis** — `$this->method()` calls within the same class, `ClassName::method()` static calls, and `(new ClassName())->method()` instance calls to external classes are followed. However, dynamic method calls on variables (e.g. `$obj->method()` where `$obj` is a variable) and trait methods are not analyzed.
 - **No flow analysis** — e.g. `$e = new E(); throw $e;` is not resolved (we only handle `throw new X` and re-throws of catch variables).
-- **Reflection-based** — only works on loadable PHP code (files that can be parsed and reflected). When scanning a directory, a `vendor/autoload.php` is loaded automatically if found nearby.
+- **Reflection-based** — only works on loadable PHP code (files that can be parsed and reflected). When scanning, a `vendor/autoload.php` is loaded automatically if found in or near the target paths.
 - **Parameter contravariance via Reflection only** — parameter type contravariance is checked on loaded classes. Since PHP itself enforces parameter compatibility at class load time, most violations are caught by the engine before the checker runs. The check is still useful as part of a comprehensive LSP report.
 
 ## License

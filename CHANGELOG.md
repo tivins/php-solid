@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-02-14
+
+### Added
+- **Config-driven scan** — `lsp-checker` now uses `Tivins\LSP\Config` for all runs. When `--config <file>` is given, the script loads a PHP file that must return a `Config` instance (directories, files, exclusions). When no config file is used, a `Config` is built from the positional `<directory>` argument.
+- **`ClassFinder::findClassesFromConfig(Config)`** — Scans all directories and explicit files from config, respects `excludeDirectory` and `excludeFile`, and returns fully qualified class names.
+
+### Changed
+- **CLI** — Usage supports two forms: `lsp-checker <directory> [options]` and `lsp-checker --config <file> [options]`. The main program always instantiates a `Config` and uses it for class discovery.
+
 ## [0.12.0] - 2026-02-14
 
 ### Changed

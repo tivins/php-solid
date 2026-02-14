@@ -6,6 +6,7 @@ namespace Tivins\Process;
 
 use InvalidArgumentException;
 use PhpParser\Node;
+use Tivins\LSP\Config;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\NodeVisitorAbstract;
@@ -79,6 +80,113 @@ class ClassFinder
 
         sort($classes);
         return $classes;
+    }
+
+    /**
+     * Collect PHP file paths from config (directories + explicit files, respecting exclusions),
+     * then parse each file and return fully qualified class names.
+     *
+     * @return string[] Fully qualified class names (sorted alphabetically)
+     */
+    public function findClassesFromConfig(Config $config): array
+    {
+        $filePaths = $this->collectFilesFromConfig($config);
+        if (empty($filePaths)) {
+            return [];
+        }
+
+        $firstPath = reset($filePaths);
+        $this->includeAutoloaderIfPresent(is_file($firstPath) ? dirname($firstPath) : $firstPath);
+
+        $parser = (new ParserFactory())->createForNewestSupportedVersion();
+        $classes = [];
+
+        foreach ($filePaths as $filePath) {
+            if (!is_file($filePath) || pathinfo($filePath, PATHINFO_EXTENSION) !== 'php') {
+                continue;
+            }
+            $code = file_get_contents($filePath);
+            if ($code === false) {
+                continue;
+            }
+            $stmts = $parser->parse($code);
+            if ($stmts === null) {
+                continue;
+            }
+            $fileClasses = $this->extractClassNames($stmts);
+            if (!empty($fileClasses)) {
+                require_once $filePath;
+                array_push($classes, ...$fileClasses);
+            }
+        }
+
+        $classes = array_unique($classes);
+        sort($classes);
+        return array_values($classes);
+    }
+
+    /**
+     * Build a list of PHP file paths from config: scan directories (with exclusions) and add explicit files.
+     *
+     * @return list<string> Absolute file paths
+     */
+    private function collectFilesFromConfig(Config $config): array
+    {
+        $excludedDirs = array_values(array_filter(array_map('realpath', $config->getExcludedDirectories())));
+        $excludedFiles = array_values(array_filter(array_map('realpath', $config->getExcludedFiles())));
+        $seen = [];
+        $paths = [];
+
+        foreach ($config->getDirectories() as $dir) {
+            $realDir = realpath($dir);
+            if ($realDir === false || !is_dir($realDir)) {
+                continue;
+            }
+            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($realDir));
+            /** @var SplFileInfo $file */
+            foreach ($iterator as $file) {
+                if ($file->getExtension() !== 'php') {
+                    continue;
+                }
+                $path = $file->getRealPath();
+                if ($path === false || isset($seen[$path])) {
+                    continue;
+                }
+                if ($this->isPathUnderAny($path, $excludedDirs) || in_array($path, $excludedFiles, true)) {
+                    continue;
+                }
+                $seen[$path] = true;
+                $paths[] = $path;
+            }
+        }
+
+        foreach ($config->getFiles() as $file) {
+            $path = realpath($file);
+            if ($path === false || !is_file($path) || isset($seen[$path])) {
+                continue;
+            }
+            if (pathinfo($path, PATHINFO_EXTENSION) !== 'php' || in_array($path, $excludedFiles, true)) {
+                continue;
+            }
+            $seen[$path] = true;
+            $paths[] = $path;
+        }
+
+        return array_values($paths);
+    }
+
+    /**
+     * @param string $path Absolute path
+     * @param list<string> $dirs Absolute directory paths
+     */
+    private function isPathUnderAny(string $path, array $dirs): bool
+    {
+        foreach ($dirs as $dir) {
+            if ($path === $dir || str_starts_with($path . DIRECTORY_SEPARATOR, $dir . DIRECTORY_SEPARATOR)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

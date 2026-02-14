@@ -10,6 +10,7 @@ use Tivins\LSP\TypeSubtypeChecker;
 use Tivins\Process\ClassFinder;
 use Tivins\Process\FormatType;
 use Tivins\Process\StdWriter;
+use Tivins\LSP\Config;
 
 # Load autoload.php from the root project
 $autoload = 'vendor/autoload.php';
@@ -20,13 +21,41 @@ require $autoload;
 
 // --- CLI options -----------------------------------------------------------
 
+$config = null;
+if (in_array('--config', $argv)) {
+    $configIndex = array_search('--config', $argv);
+    $configFilename = $argv[$configIndex + 1] ?? null;
+    if ($configFilename === null || $configFilename === '') {
+        fwrite(STDERR, "Error: --config requires a file path.\n");
+        exit(2);
+    }
+    $argv = array_diff_key($argv, array_flip([$configIndex, $configIndex + 1]));
+    $argv = array_values($argv);
+    try {
+        if (!is_file($configFilename) || !is_readable($configFilename)) {
+            throw new Exception("Config file '$configFilename' not found or not readable.");
+        }
+        $config = require $configFilename;
+        if (!$config instanceof Config) {
+            if (is_object($config)) {
+                throw new Exception("Config file '$configFilename' must return a " . Config::class . " object. Got " . get_class($config) . ".");
+            } else {
+                throw new Exception("Config file '$configFilename' must return a " . Config::class . " object. Got " . gettype($config) . ".");
+            }
+        }
+    } catch (Throwable $e) {
+        fwrite(STDERR, "Error: Failed to load config file '$configFilename': " . $e->getMessage() . "\n");
+        exit(2);
+    }
+}
+
 $format = FormatType::TEXT;
 if (in_array('--json', $argv)) {
     $format = FormatType::JSON;
 }
 $verbose = !in_array('--quiet', $argv);
 
-// First non-option argument = directory to scan.
+// First non-option argument = directory to scan (used when no --config).
 $directory = null;
 foreach (array_slice($argv, 1) as $arg) {
     if (!str_starts_with($arg, '--')) {
@@ -35,26 +64,30 @@ foreach (array_slice($argv, 1) as $arg) {
     }
 }
 
-if ($directory === null) {
-    fwrite(STDERR, "Usage: lsp-checker <directory> [--json] [--quiet]\n");
-    fwrite(STDERR, "  <directory>  Path to a directory containing PHP files to check.\n");
-    fwrite(STDERR, "  --json       Output violations as JSON.\n");
-    fwrite(STDERR, "  --quiet      Minimal output.\n");
-    fwrite(STDERR, "\nRun unit tests with: vendor/bin/phpunit\n");
-    exit(2);
-}
-
-if (!is_dir($directory)) {
-    fwrite(STDERR, "Error: '$directory' is not a valid directory.\n");
-    exit(2);
+if ($config === null) {
+    if ($directory === null) {
+        fwrite(STDERR, "Usage: lsp-checker <directory> [--config <file>] [--json] [--quiet]\n");
+        fwrite(STDERR, "       lsp-checker --config <file> [--json] [--quiet]\n");
+        fwrite(STDERR, "  <directory>     Path to a directory containing PHP files to check.\n");
+        fwrite(STDERR, "  --config <file> Path to a PHP file that returns a " . Config::class . " instance.\n");
+        fwrite(STDERR, "  --json          Output violations as JSON.\n");
+        fwrite(STDERR, "  --quiet         Minimal output.\n");
+        fwrite(STDERR, "\nRun unit tests with: vendor/bin/phpunit\n");
+        exit(2);
+    }
+    if (!is_dir($directory)) {
+        fwrite(STDERR, "Error: '$directory' is not a valid directory.\n");
+        exit(2);
+    }
+    $config = (new Config())->addDirectory($directory);
 }
 
 # --- Main program -----------------------------------------------------------
 
 $finder  = new ClassFinder();
-$classes = $finder->findClassesInDirectory($directory);
+$classes = $finder->findClassesFromConfig($config);
 if (empty($classes)) {
-    fwrite(STDERR, "No PHP classes found in '$directory'.\n");
+    fwrite(STDERR, "No PHP classes found for the given config.\n");
     exit(0);
 }
 
