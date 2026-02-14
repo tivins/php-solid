@@ -3,7 +3,7 @@
 A PHP tool that detects **Liskov Substitution Principle (LSP)** violations, focusing on exception contracts, return type covariance, and parameter type contravariance between classes and their contracts (interfaces and parent classes).
 
 
-[![CI](https://github.com/tivins/poc-liskov-check/actions/workflows/ci.yml/badge.svg)](https://github.com/tivins/poc-liskov-check/actions/workflows/ci.yml)
+[![CI](https://github.com/tivins/php-liskov/actions/workflows/ci.yml/badge.svg)](https://github.com/tivins/php-liskov/actions/workflows/ci.yml)
 
 
 ## What it checks
