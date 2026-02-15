@@ -142,7 +142,7 @@ readonly class ThrowsContractRuleChecker implements LspRuleCheckerInterface
      *
      * @param ReflectionClass<object> $class
      * @param ReflectionClass<object> $contract
-     * @param list<string> $contractThrows
+     * @param array<string> $contractThrows
      * @param array<string, string> $classUseImports    Use imports from the class file
      * @param array<string, string> $contractUseImports Use imports from the contract file
      */

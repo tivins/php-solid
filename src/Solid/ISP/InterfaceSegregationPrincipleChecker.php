@@ -35,6 +35,7 @@ readonly class InterfaceSegregationPrincipleChecker
      */
     public function check(string $className): array
     {
+        /** @var class-string $className */
         $reflection = new ReflectionClass($className);
         $violations = [];
 

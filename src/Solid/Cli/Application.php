@@ -103,7 +103,7 @@ final class Application
 
     /**
      * @param list<string> $classes
-     * @param callable(string): list<object> $check Returns list of violation objects
+     * @param callable(string): array<\Stringable> $check Returns violations (accepts class name string)
      * @param callable(mixed): array<string, mixed> $violationToArray
      * @param list<array<string, mixed>> $allViolations
      * @param list<array{class: string, message: string}> $allErrors
@@ -138,7 +138,7 @@ final class Application
                 } else {
                     foreach ($violations as $violation) {
                         $allViolations[] = $violationToArray($violation);
-                        $writer->content("       -> $violation", FormatType::TEXT);
+                        $writer->content('       -> ' . $violation->__toString(), FormatType::TEXT);
                     }
                 }
             }

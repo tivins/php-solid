@@ -30,7 +30,7 @@ class ClassFinder
      * If the target directory (or an ancestor up to 3 levels) contains a vendor/autoload.php,
      * it is included first so that dependencies are available.
      *
-     * @return string[] Fully qualified class names (sorted alphabetically)
+     * @return list<string> Fully qualified class names (sorted alphabetically)
      * @throws InvalidArgumentException If the directory does not exist or is not readable
      */
     public function findClassesInDirectory(string $directory): array
@@ -86,7 +86,7 @@ class ClassFinder
      * Collect PHP file paths from config (directories + explicit files, respecting exclusions),
      * then parse each file and return fully qualified class names.
      *
-     * @return string[] Fully qualified class names (sorted alphabetically)
+     * @return list<string> Fully qualified class names (sorted alphabetically)
      */
     public function findClassesFromConfig(Config $config): array
     {

@@ -165,13 +165,19 @@ class ThrowsDetector implements ThrowsDetectorInterface
             return [];
         }
 
-        $methodNode = $this->findMethodNode($stmts, $method->getName(), $method->getStartLine(), $method->getEndLine());
+        $startLine = $method->getStartLine();
+        $endLine = $method->getEndLine();
+        if ($startLine === false || $endLine === false) {
+            return [];
+        }
+
+        $methodNode = $this->findMethodNode($stmts, $method->getName(), $startLine, $endLine);
         if ($methodNode === null) {
             return [];
         }
 
         // Find the enclosing class to resolve $this->method() calls
-        $classNode = $this->findEnclosingClass($stmts, $method->getStartLine(), $method->getEndLine());
+        $classNode = $this->findEnclosingClass($stmts, $startLine, $endLine);
 
         // Track visited methods to prevent infinite recursion (circular calls)
         $visited = [];
@@ -197,12 +203,18 @@ class ThrowsDetector implements ThrowsDetectorInterface
             return [];
         }
 
-        $methodNode = $this->findMethodNode($stmts, $method->getName(), $method->getStartLine(), $method->getEndLine());
+        $startLine = $method->getStartLine();
+        $endLine = $method->getEndLine();
+        if ($startLine === false || $endLine === false) {
+            return [];
+        }
+
+        $methodNode = $this->findMethodNode($stmts, $method->getName(), $startLine, $endLine);
         if ($methodNode === null) {
             return [];
         }
 
-        $classNode = $this->findEnclosingClass($stmts, $method->getStartLine(), $method->getEndLine());
+        $classNode = $this->findEnclosingClass($stmts, $startLine, $endLine);
         $visited = [];
         $variableTypes = $this->buildVariableTypesForMethod($method, $methodNode);
 
@@ -363,7 +375,7 @@ class ThrowsDetector implements ThrowsDetectorInterface
      * Parse a PHP file and return its AST with resolved names.
      * Uses an internal cache to avoid re-parsing the same file.
      *
-     * @return Stmt[]|null
+     * @return list<Stmt>|null
      */
     private function parseFile(string $filename): ?array
     {
@@ -393,6 +405,7 @@ class ThrowsDetector implements ThrowsDetectorInterface
 
     /**
      * Find the ClassMethod node matching the given method name and line range.
+     *
      * @param list<Stmt> $stmts
      */
     private function findMethodNode(array $stmts, string $methodName, int $startLine, int $endLine): ?Stmt\ClassMethod
@@ -433,7 +446,6 @@ class ThrowsDetector implements ThrowsDetectorInterface
      * Find the Class_/Enum_ node that contains the given line range.
      *
      * @param list<Stmt> $stmts
-     * @return Stmt\Class_|Stmt\Enum_|null
      */
     private function findEnclosingClass(array $stmts, int $startLine, int $endLine): Stmt\Class_|Stmt\Enum_|null
     {
@@ -480,6 +492,9 @@ class ThrowsDetector implements ThrowsDetectorInterface
             return [];
         }
         $classId = $classNode->namespacedName->toString();
+        if (!class_exists($classId)) {
+            return [];
+        }
         try {
             $refClass = new ReflectionClass($classId);
             if (!$refClass->hasMethod($calledMethodName)) {
@@ -513,7 +528,7 @@ class ThrowsDetector implements ThrowsDetectorInterface
      * @param Stmt\Class_|Stmt\Enum_|null  $classNode   The enclosing class (for resolving $this-> calls)
      * @param array<string, true>         $visited      Set of already-visited method names (prevents infinite recursion)
      * @param array<string, list<string>> $variableTypes Variable name → list of FQCNs (for dynamic calls)
-     * @return list<array{exception: string, chain: string[]}> Exception names (no leading \) and the chain that leads to it
+     * @return list<array{exception: string, chain: list<string>}> Exception names (no leading \) and the chain that leads to it
      */
     private function extractThrowTypesRecursive(
         Stmt\ClassMethod $methodNode,
@@ -575,7 +590,7 @@ class ThrowsDetector implements ThrowsDetectorInterface
             {
                 // Register catch variable types for re-throw resolution
                 if ($node instanceof Stmt\Catch_) {
-                    if ($node->var !== null) {
+                    if ($node->var !== null && is_string($node->var->name)) {
                         $varName = $node->var->name;
                         foreach ($node->types as $type) {
                             $this->catchVariableTypes[$varName][] = $type->toString();
@@ -706,6 +721,7 @@ class ThrowsDetector implements ThrowsDetectorInterface
             }
 
             try {
+                /** @var class-string $calledClassNorm */
                 $refClass = new ReflectionClass($calledClassNorm);
                 if (!$refClass->hasMethod($calledMethod)) {
                     continue;
@@ -713,6 +729,11 @@ class ThrowsDetector implements ThrowsDetectorInterface
                 $refMethod = $refClass->getMethod($calledMethod);
                 $filename = $refMethod->getFileName();
                 if ($filename === false) {
+                    continue;
+                }
+                $extStartLine = $refMethod->getStartLine();
+                $extEndLine = $refMethod->getEndLine();
+                if ($extStartLine === false || $extEndLine === false) {
                     continue;
                 }
 
@@ -724,8 +745,8 @@ class ThrowsDetector implements ThrowsDetectorInterface
                 $extMethodNode = $this->findMethodNode(
                     $extStmts,
                     $calledMethod,
-                    $refMethod->getStartLine(),
-                    $refMethod->getEndLine(),
+                    $extStartLine,
+                    $extEndLine,
                 );
                 if ($extMethodNode === null) {
                     continue;
@@ -733,8 +754,8 @@ class ThrowsDetector implements ThrowsDetectorInterface
 
                 $extClassNode = $this->findEnclosingClass(
                     $extStmts,
-                    $refMethod->getStartLine(),
-                    $refMethod->getEndLine(),
+                    $extStartLine,
+                    $extEndLine,
                 );
 
                 $calleeVariableTypes = $this->buildVariableTypesForMethod($refMethod, $extMethodNode);
@@ -778,6 +799,7 @@ class ThrowsDetector implements ThrowsDetectorInterface
             }
 
             try {
+                /** @var class-string $calledClassNorm */
                 $refClass = new ReflectionClass($calledClassNorm);
                 if (!$refClass->hasMethod($calledMethod)) {
                     continue;
@@ -785,6 +807,11 @@ class ThrowsDetector implements ThrowsDetectorInterface
                 $refMethod = $refClass->getMethod($calledMethod);
                 $filename = $refMethod->getFileName();
                 if ($filename === false) {
+                    continue;
+                }
+                $extStartLine = $refMethod->getStartLine();
+                $extEndLine = $refMethod->getEndLine();
+                if ($extStartLine === false || $extEndLine === false) {
                     continue;
                 }
 
@@ -796,8 +823,8 @@ class ThrowsDetector implements ThrowsDetectorInterface
                 $extMethodNode = $this->findMethodNode(
                     $extStmts,
                     $calledMethod,
-                    $refMethod->getStartLine(),
-                    $refMethod->getEndLine(),
+                    $extStartLine,
+                    $extEndLine,
                 );
                 if ($extMethodNode === null) {
                     continue;
@@ -805,8 +832,8 @@ class ThrowsDetector implements ThrowsDetectorInterface
 
                 $extClassNode = $this->findEnclosingClass(
                     $extStmts,
-                    $refMethod->getStartLine(),
-                    $refMethod->getEndLine(),
+                    $extStartLine,
+                    $extEndLine,
                 );
 
                 $calleeVariableTypes = $this->buildVariableTypesForMethod($refMethod, $extMethodNode);
@@ -819,6 +846,6 @@ class ThrowsDetector implements ThrowsDetectorInterface
             }
         }
 
-        return $result;
+        return array_values($result);
     }
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.20.2] - 2026-02-15
+
+### Changed
+- **PHPStan level 7** — Codebase is now fully compliant with PHPStan level 7: stricter list vs array types (ClassFinder, Application, RunResult, ThrowsDetector, ThrowsContractRuleChecker), class-string assertions for ReflectionClass (ISP/LSP checkers, ThrowsDetector), handling of `getStartLine()`/`getEndLine()` possibly false, string-only keys for catch variable types in ThrowsDetector, `\Stringable` for violation display in Application, and explicit list return in `extractThrowTypesRecursive`.
+
 ## [0.20.1] - 2026-02-15
 
 ### Changed
