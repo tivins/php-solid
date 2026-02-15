@@ -103,7 +103,7 @@ final class Application
 
     /**
      * @param list<string> $classes
-     * @param callable(string): array $check Returns list of violation objects
+     * @param callable(string): list<object> $check Returns list of violation objects
      * @param callable(mixed): array<string, mixed> $violationToArray
      * @param list<array<string, mixed>> $allViolations
      * @param list<array{class: string, message: string}> $allErrors

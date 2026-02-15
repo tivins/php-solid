@@ -22,6 +22,9 @@ readonly class TypeSubtypeChecker
     /**
      * Check if $childType is a subtype of $parentType, considering
      * union types, intersection types, named types, and nullability.
+     *
+     * @param ReflectionClass<object> $childContext
+     * @param ReflectionClass<object> $parentContext
      */
     public function isTypeSubtypeOf(
         ReflectionType  $childType,
@@ -106,6 +109,10 @@ readonly class TypeSubtypeChecker
         return (string) $type;
     }
 
+    /**
+     * @param ReflectionClass<object> $childContext
+     * @param ReflectionClass<object> $parentContext
+     */
     private function isNamedTypeSubtypeOf(
         ReflectionNamedType $childType,
         ReflectionNamedType $parentType,
@@ -176,6 +183,9 @@ readonly class TypeSubtypeChecker
         return is_a($childType, $parentType, true);
     }
 
+    /**
+     * @param ReflectionClass<object> $context
+     */
     private function normalizeTypeName(string $typeName, ReflectionClass $context): string
     {
         $type = ltrim($typeName, '\\');

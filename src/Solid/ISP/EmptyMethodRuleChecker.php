@@ -38,6 +38,10 @@ class EmptyMethodRuleChecker implements IspRuleCheckerInterface
     /** @var array<string, Stmt\ClassLike|null> */
     private array $astCache = [];
 
+    /**
+     * @param ReflectionClass<object> $class
+     * @param ReflectionClass<object> $interface
+     */
     public function check(ReflectionClass $class, ReflectionClass $interface): array
     {
         $violations = [];
@@ -114,15 +118,9 @@ class EmptyMethodRuleChecker implements IspRuleCheckerInterface
                 }
             }
 
-            // Standalone throw statement (PHP 8+)
-            if ($stmt instanceof Stmt\Throw_
-                && $stmt->expr instanceof Node\Expr\New_
-            ) {
-                $thrownClass = $this->resolveClassName($stmt->expr->class);
-                if ($thrownClass !== null && $this->isNotImplementedException($thrownClass)) {
-                    return sprintf('a stub (throws %s)', $this->shortName($thrownClass));
-                }
-            }
+            // Standalone throw statement: in php-parser v5 it is Stmt\Expression(Expr\Throw_(expr))
+            // (Stmt\Throw_ does not exist in v5; both PHP 7 and 8 use Expr\Throw_)
+            // Handled above via Stmt\Expression + Expr\Throw_.
 
             // return null; or return;
             if ($stmt instanceof Stmt\Return_) {

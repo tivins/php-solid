@@ -18,7 +18,7 @@ use ReflectionUnionType;
 
 class ThrowsDetector implements ThrowsDetectorInterface
 {
-    /** @var Stmt[] Cache of parsed ASTs keyed by file path */
+    /** @var array<string, list<Stmt>> Cache of parsed ASTs keyed by file path */
     private array $astCache = [];
 
     /** @var array<string, array<string, string>> Cache of use imports keyed by class name */
@@ -68,6 +68,7 @@ class ThrowsDetector implements ThrowsDetectorInterface
      * For example, `use Foo\Bar\BazException;` produces ['BazException' => 'Foo\Bar\BazException'].
      * Aliased imports like `use Foo\Bar as Baz;` produce ['Baz' => 'Foo\Bar'].
      *
+     * @param ReflectionClass<object> $class
      * @return array<string, string> short name → FQCN (without leading \)
      */
     public function getUseImportsForClass(ReflectionClass $class): array
@@ -326,9 +327,13 @@ class ThrowsDetector implements ThrowsDetectorInterface
         $types = [];
         $traverser = new NodeTraverser();
         $traverser->addVisitor(new class($resolver, $types) extends NodeVisitorAbstract {
-            /** @param \Closure(string): string $resolver */
+            /**
+             * @param \Closure(string): string $resolver
+             * @param array<string, list<string>> $types
+             */
             public function __construct(
                 private readonly \Closure $resolver,
+                /** @phpstan-ignore-next-line property.onlyWritten (read by caller via reference after traverse) */
                 private array &$types,
             ) {
             }
@@ -381,13 +386,14 @@ class ThrowsDetector implements ThrowsDetectorInterface
         $traverser = new NodeTraverser();
         $traverser->addVisitor(new NameResolver());
         $stmts = $traverser->traverse($stmts);
-
+        /** @var list<Stmt> $stmts */
         $this->astCache[$filename] = $stmts;
         return $stmts;
     }
 
     /**
      * Find the ClassMethod node matching the given method name and line range.
+     * @param list<Stmt> $stmts
      */
     private function findMethodNode(array $stmts, string $methodName, int $startLine, int $endLine): ?Stmt\ClassMethod
     {
@@ -399,6 +405,7 @@ class ThrowsDetector implements ThrowsDetectorInterface
                 private readonly string         $methodName,
                 private readonly int            $startLine,
                 private readonly int            $endLine,
+                /** @phpstan-ignore-next-line property.onlyWritten (read by caller via reference after traverse) */
                 private ?Stmt\ClassMethod       &$found,
             ) {
             }
@@ -425,9 +432,10 @@ class ThrowsDetector implements ThrowsDetectorInterface
     /**
      * Find the Class_/Enum_ node that contains the given line range.
      *
+     * @param list<Stmt> $stmts
      * @return Stmt\Class_|Stmt\Enum_|null
      */
-    private function findEnclosingClass(array $stmts, int $startLine, int $endLine): ?Stmt
+    private function findEnclosingClass(array $stmts, int $startLine, int $endLine): Stmt\Class_|Stmt\Enum_|null
     {
         $found = null;
 
@@ -436,7 +444,8 @@ class ThrowsDetector implements ThrowsDetectorInterface
             public function __construct(
                 private readonly int $startLine,
                 private readonly int $endLine,
-                private ?Stmt       &$found,
+                /** @phpstan-ignore-next-line property.onlyWritten (read by caller via reference after traverse) */
+                private Stmt\Class_|Stmt\Enum_|null &$found,
             ) {
             }
 
@@ -447,6 +456,7 @@ class ThrowsDetector implements ThrowsDetectorInterface
                     && $node->getStartLine() <= $this->startLine
                     && $node->getEndLine() >= $this->endLine
                 ) {
+                    /** @var Stmt\Class_|Stmt\Enum_ $node */
                     $this->found = $node;
                     return NodeTraverser::STOP_TRAVERSAL;
                 }
@@ -464,7 +474,7 @@ class ThrowsDetector implements ThrowsDetectorInterface
      *
      * @return array<string, list<string>>
      */
-    private function buildVariableTypesForCallee(Stmt $classNode, string $calledMethodName, Stmt\ClassMethod $calledNode): array
+    private function buildVariableTypesForCallee(Stmt\Class_|Stmt\Enum_|Stmt\Trait_ $classNode, string $calledMethodName, Stmt\ClassMethod $calledNode): array
     {
         if (!isset($classNode->namespacedName)) {
             return [];
@@ -485,7 +495,7 @@ class ThrowsDetector implements ThrowsDetectorInterface
     /**
      * Find a ClassMethod by name within a class node.
      */
-    private function findMethodInClass(Stmt $classNode, string $methodName): ?Stmt\ClassMethod
+    private function findMethodInClass(Stmt\Class_|Stmt\Enum_|Stmt\Trait_ $classNode, string $methodName): ?Stmt\ClassMethod
     {
         foreach ($classNode->stmts as $stmt) {
             if ($stmt instanceof Stmt\ClassMethod && $stmt->name->toString() === $methodName) {
@@ -536,12 +546,26 @@ class ThrowsDetector implements ThrowsDetectorInterface
 
         $traverser = new NodeTraverser();
         $traverser->addVisitor(new class($throws, $catchVariableTypes, $internalCalls, $externalCalls, $instanceCalls, $dynamicCalls, $variableTypes) extends NodeVisitorAbstract {
+            /**
+             * @param array<string> $throws
+             * @param array<string, list<string>> $catchVariableTypes
+             * @param array<string> $internalCalls
+             * @param array<int, array{0: string, 1: string}> $externalCalls
+             * @param array<int, array{0: string, 1: string}> $instanceCalls
+             * @param array<int, array{0: string, 1: string}> $dynamicCalls
+             * @param array<string, list<string>> $variableTypes
+             */
             public function __construct(
+                /** @phpstan-ignore-next-line property.onlyWritten */
                 private array &$throws,
                 private array &$catchVariableTypes,
+                /** @phpstan-ignore-next-line property.onlyWritten */
                 private array &$internalCalls,
+                /** @phpstan-ignore-next-line property.onlyWritten */
                 private array &$externalCalls,
+                /** @phpstan-ignore-next-line property.onlyWritten */
                 private array &$instanceCalls,
+                /** @phpstan-ignore-next-line property.onlyWritten */
                 private array &$dynamicCalls,
                 private array $variableTypes,
             ) {
@@ -602,13 +626,11 @@ class ThrowsDetector implements ThrowsDetectorInterface
                     $this->externalCalls[] = [$node->class->toString(), $node->name->toString()];
                 }
 
-                // Detect throw statements (Stmt\Throw_ in php-parser v5 for `throw expr;`)
-                // In PHP 8+, throw is also an expression (Expr\Throw_)
+                // Detect throw: in php-parser v5 both "throw expr;" and "throw expr" use Expr\Throw_
+                // (Stmt\Throw_ does not exist in v5; standalone throw is Stmt\Expression(Expr\Throw_(expr)))
                 $throwExpr = null;
                 if ($node instanceof Stmt\Expression && $node->expr instanceof Expr\Throw_) {
                     $throwExpr = $node->expr->expr;
-                } elseif ($node instanceof Stmt\Throw_) {
-                    $throwExpr = $node->expr;
                 } elseif ($node instanceof Expr\Throw_) {
                     $throwExpr = $node->expr;
                 }

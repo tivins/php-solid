@@ -30,6 +30,7 @@ interface ThrowsDetectorInterface
      * For example, `use Foo\Bar\BazException;` produces ['BazException' => 'Foo\Bar\BazException'].
      * Aliased imports like `use Foo\Bar as Baz;` produce ['Baz' => 'Foo\Bar'].
      *
+     * @param ReflectionClass<object> $class
      * @return array<string, string> short name → FQCN (without leading \)
      * 
      * @throws LogicException if the class is not a class or interface

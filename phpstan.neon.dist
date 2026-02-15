@@ -1,0 +1,8 @@
+parameters:
+    level: 6
+    paths:
+        - src
+    # Réduit la mémoire totale : un seul processus au lieu de plusieurs workers.
+    # Alternative : lancer avec --memory-limit=512M pour garder le parallélisme.
+    parallel:
+        maximumNumberOfProcesses: 1

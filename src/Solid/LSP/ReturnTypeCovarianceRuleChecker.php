@@ -20,7 +20,11 @@ readonly class ReturnTypeCovarianceRuleChecker implements LspRuleCheckerInterfac
     {
     }
 
-    /** @inheritDoc */
+    /**
+     * @param ReflectionClass<object> $class
+     * @param ReflectionClass<object> $contract
+     * @inheritDoc
+     */
     public function check(
         ReflectionClass  $class,
         ReflectionMethod $classMethod,
@@ -48,6 +52,10 @@ readonly class ReturnTypeCovarianceRuleChecker implements LspRuleCheckerInterfac
         ];
     }
 
+    /**
+     * @param ReflectionClass<object> $classContext
+     * @param ReflectionClass<object> $contractContext
+     */
     private function isReturnTypeCovariant(
         ?ReflectionType $classReturnType,
         ?ReflectionType $contractReturnType,

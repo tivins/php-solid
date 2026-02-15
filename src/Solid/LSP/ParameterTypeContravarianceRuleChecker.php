@@ -21,7 +21,11 @@ readonly class ParameterTypeContravarianceRuleChecker implements LspRuleCheckerI
     {
     }
 
-    /** @inheritDoc */
+    /**
+     * @param ReflectionClass<object> $class
+     * @param ReflectionClass<object> $contract
+     * @inheritDoc
+     */
     public function check(
         ReflectionClass  $class,
         ReflectionMethod $classMethod,
@@ -70,6 +74,9 @@ readonly class ParameterTypeContravarianceRuleChecker implements LspRuleCheckerI
      * Contravariance: the class parameter must accept at least everything the contract
      * parameter accepts. This means the contract type must be a subtype of (or equal to)
      * the class type.
+     *
+     * @param ReflectionClass<object> $classContext
+     * @param ReflectionClass<object> $contractContext
      */
     public function isParameterTypeContravariant(
         ?ReflectionType $classParamType,

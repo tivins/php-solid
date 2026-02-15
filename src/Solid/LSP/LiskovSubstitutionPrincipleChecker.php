@@ -64,6 +64,8 @@ readonly class LiskovSubstitutionPrincipleChecker
      * Compare all methods of a class against a contract (interface or parent class)
      * by delegating to each registered rule checker.
      *
+     * @param ReflectionClass<object> $class
+     * @param ReflectionClass<object> $contract
      * @return LspViolation[]
      */
     private function checkAgainstContract(ReflectionClass $class, ReflectionClass $contract): array

@@ -17,6 +17,8 @@ interface IspRuleCheckerInterface
     /**
      * Check a class against one of its interfaces for ISP violations.
      *
+     * @param ReflectionClass<object> $class
+     * @param ReflectionClass<object> $interface
      * @return IspViolation[] List of violations found (empty if none)
      * @throws \LogicException Implementations that use parsing or external libraries (e.g. PhpParser) may throw.
      */

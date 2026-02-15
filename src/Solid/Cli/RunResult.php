@@ -6,14 +6,15 @@ namespace Tivins\Solid\Cli;
 
 /**
  * Structured result of an Application run.
- *
- * @param list<string> $classes All class names that were checked
- * @param list<array<string, mixed>> $violations All violations (for JSON: principle, className, ...)
- * @param list<array{class: string, message: string}> $errors Load/reflection errors per class
- * @param list<string> $failedClassNames Class names that had at least one violation or error
  */
 readonly class RunResult
 {
+    /**
+     * @param list<string> $classes All class names that were checked
+     * @param list<array<string, mixed>> $violations All violations (for JSON: principle, className, ...)
+     * @param list<array{class: string, message: string}> $errors Load/reflection errors per class
+     * @param list<string> $failedClassNames Class names that had at least one violation or error
+     */
     public function __construct(
         public array $classes,
         public array $violations,

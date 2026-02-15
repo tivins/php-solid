@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.20.1] - 2026-02-15
+
+### Changed
+- **PHPStan level 6** — Codebase is now fully compliant with PHPStan level 6: added `ReflectionClass<object>` generics where required, typed array parameters (e.g. `list<Stmt>`, `list<string>`) in ThrowsDetector and ThrowsContractRuleChecker, and corrected return/parameter types in ThrowsDetector (`findEnclosingClass`, `findMethodInClass`, `buildVariableTypesForCallee`, `parseFile` cache).
+
+### Fixed
+- **php-parser v5 compatibility** — Removed use of non-existent `Stmt\Throw_` (php-parser v5 only provides `Expr\Throw_`; standalone `throw expr;` is represented as `Stmt\Expression(Expr\Throw_(expr))`). EmptyMethodRuleChecker and ThrowsDetector now rely solely on `Expr\Throw_` and `Stmt\Expression` + `Expr\Throw_`.
+- **ClassFinder** — Dropped redundant `array_values()` on already-list arrays (PHPStan `arrayValues.list`); `sort()` already reindexes, and `$paths` is built with `$paths[]`.
+
 ## [0.20.0] - 2026-02-15
 
 ### Added

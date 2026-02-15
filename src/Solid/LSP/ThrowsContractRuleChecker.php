@@ -20,7 +20,11 @@ readonly class ThrowsContractRuleChecker implements LspRuleCheckerInterface
     {
     }
 
-    /** @inheritDoc */
+    /**
+     * @param ReflectionClass<object> $class
+     * @param ReflectionClass<object> $contract
+     * @inheritDoc
+     */
     public function check(
         ReflectionClass  $class,
         ReflectionMethod $classMethod,
@@ -104,6 +108,7 @@ readonly class ThrowsContractRuleChecker implements LspRuleCheckerInterface
      * 3. Current namespace → if a class with that name exists in the same namespace
      * 4. Global namespace → fallback for standard PHP exceptions (Exception, RuntimeException, etc.)
      *
+     * @param ReflectionClass<object> $class
      * @param array<string, string> $useImports Short name → FQCN map from `use` statements
      */
     private function resolveExceptionFqcn(string $type, ReflectionClass $class, array $useImports = []): string
@@ -135,6 +140,9 @@ readonly class ThrowsContractRuleChecker implements LspRuleCheckerInterface
      * Return true if the thrown exception type is allowed by the contract:
      * same type or a subclass of any exception declared in the contract (LSP-compliant).
      *
+     * @param ReflectionClass<object> $class
+     * @param ReflectionClass<object> $contract
+     * @param list<string> $contractThrows
      * @param array<string, string> $classUseImports    Use imports from the class file
      * @param array<string, string> $contractUseImports Use imports from the contract file
      */

@@ -19,6 +19,8 @@ interface LspRuleCheckerInterface
     /**
      * Check a single class method against its contract method for LSP violations.
      *
+     * @param ReflectionClass<object> $class
+     * @param ReflectionClass<object> $contract
      * @return LspViolation[] List of violations found (empty if none)
      */
     public function check(

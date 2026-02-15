@@ -29,6 +29,10 @@ class FatInterfaceRuleChecker implements IspRuleCheckerInterface
     ) {
     }
 
+    /**
+     * @param ReflectionClass<object> $class
+     * @param ReflectionClass<object> $interface
+     */
     public function check(ReflectionClass $class, ReflectionClass $interface): array
     {
         // Only report a fat interface once (for the first class we encounter)

@@ -121,8 +121,9 @@ class ClassFinder
         }
 
         $classes = array_unique($classes);
-        sort($classes);
-        return array_values($classes);
+        sort($classes); // reindexes keys to 0,1,2,… so result is already a list
+
+        return $classes;
     }
 
     /**
@@ -172,7 +173,7 @@ class ClassFinder
             $paths[] = $path;
         }
 
-        return array_values($paths);
+        return $paths;
     }
 
     /**
