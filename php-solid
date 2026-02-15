@@ -3,244 +3,37 @@
 
 declare(strict_types=1);
 
-use Tivins\Solid\ISP\EmptyMethodRuleChecker;
-use Tivins\Solid\ISP\FatInterfaceRuleChecker;
-use Tivins\Solid\ISP\InterfaceSegregationPrincipleChecker;
-use Tivins\Solid\Config;
-use Tivins\Solid\LSP\LiskovSubstitutionPrincipleChecker;
-use Tivins\Solid\LSP\ParameterTypeContravarianceRuleChecker;
-use Tivins\Solid\LSP\ReturnTypeCovarianceRuleChecker;
-use Tivins\Solid\LSP\ThrowsContractRuleChecker;
-use Tivins\Solid\LSP\ThrowsDetector;
-use Tivins\Solid\LSP\TypeSubtypeChecker;
+use Tivins\Solid\Cli\Application;
+use Tivins\Solid\Cli\CliParseException;
+use Tivins\Solid\Cli\CliParser;
 use Tivins\Solid\Process\ClassFinder;
 use Tivins\Solid\Process\FormatType;
 use Tivins\Solid\Process\StdWriter;
 
-# Load autoload.php from the root project
-$autoload = 'vendor/autoload.php';
+$autoload = __DIR__ . '/vendor/autoload.php';
 if (!is_file($autoload)) {
-    throw new Exception('"vendor/autoload.php" not found. Current directory: ' . __DIR__);
+    throw new Exception('"vendor/autoload.php" not found. Run via vendor/bin/php-solid from your project root after composer require tivins/php-solid.');
 }
 require $autoload;
 
-// --- CLI options -----------------------------------------------------------
-
-$config = null;
-if (in_array('--config', $argv)) {
-    $configIndex = array_search('--config', $argv);
-    $configFilename = $argv[$configIndex + 1] ?? null;
-    if ($configFilename === null || $configFilename === '') {
-        fwrite(STDERR, "Error: --config requires a file path.\n");
-        exit(2);
-    }
-    $argv = array_diff_key($argv, array_flip([$configIndex, $configIndex + 1]));
-    $argv = array_values($argv);
-    try {
-        if (!is_file($configFilename) || !is_readable($configFilename)) {
-            throw new Exception("Config file '$configFilename' not found or not readable.");
-        }
-        $config = require $configFilename;
-        if (!$config instanceof Config) {
-            if (is_object($config)) {
-                throw new Exception("Config file '$configFilename' must return a " . Config::class . " object. Got " . get_class($config) . ".");
-            } else {
-                throw new Exception("Config file '$configFilename' must return a " . Config::class . " object. Got " . gettype($config) . ".");
-            }
-        }
-    } catch (Throwable $e) {
-        fwrite(STDERR, "Error: Failed to load config file '$configFilename': " . $e->getMessage() . "\n");
-        exit(2);
-    }
+try {
+    $options = (new CliParser())->parse($argv);
+} catch (CliParseException $e) {
+    fwrite(STDERR, $e->getMessage() . "\n");
+    exit(2);
 }
 
-$format = FormatType::TEXT;
-if (in_array('--json', $argv)) {
-    $format = FormatType::JSON;
-}
-$verbose = !in_array('--quiet', $argv);
-
-// Principle selection: --lsp, --isp, or both (default)
-$runLsp = in_array('--lsp', $argv);
-$runIsp = in_array('--isp', $argv);
-if (!$runLsp && !$runIsp) {
-    // Neither specified → run both
-    $runLsp = true;
-    $runIsp = true;
-}
-
-// ISP threshold (CLI override; config value applied after $config is ready)
-$ispThresholdCli = null;
-if (in_array('--isp-threshold', $argv)) {
-    $thresholdIndex = array_search('--isp-threshold', $argv);
-    $thresholdValue = $argv[$thresholdIndex + 1] ?? null;
-    if ($thresholdValue === null || !ctype_digit($thresholdValue) || (int) $thresholdValue < 1) {
-        fwrite(STDERR, "Error: --isp-threshold requires a positive integer.\n");
-        exit(2);
-    }
-    $ispThresholdCli = (int) $thresholdValue;
-}
-
-// First non-option argument = directory to scan (used when no --config).
-$directory = null;
-$skipNext = false;
-foreach (array_slice($argv, 1) as $i => $arg) {
-    if ($skipNext) {
-        $skipNext = false;
-        continue;
-    }
-    if ($arg === '--config' || $arg === '--isp-threshold') {
-        $skipNext = true;
-        continue;
-    }
-    if (!str_starts_with($arg, '--')) {
-        $directory = $arg;
-        break;
-    }
-}
-
-if ($config === null) {
-    if ($directory === null) {
-        fwrite(STDERR, "Usage: php-solid <directory> [options]\n");
-        fwrite(STDERR, "       php-solid --config <file> [options]\n");
-        fwrite(STDERR, "  <directory>          Path to a directory containing PHP files to check.\n");
-        fwrite(STDERR, "  --config <file>      Path to a PHP file that returns a " . Config::class . " instance.\n");
-        fwrite(STDERR, "  --lsp                Run only LSP checks.\n");
-        fwrite(STDERR, "  --isp                Run only ISP checks.\n");
-        fwrite(STDERR, "  --isp-threshold <n>  Fat interface method threshold (default: " . FatInterfaceRuleChecker::DEFAULT_THRESHOLD . ").\n");
-        fwrite(STDERR, "  --json               Output violations as JSON.\n");
-        fwrite(STDERR, "  --quiet              Minimal output.\n");
-        fwrite(STDERR, "\nRun unit tests with: vendor/bin/phpunit\n");
-        exit(2);
-    }
-    if (!is_dir($directory)) {
-        fwrite(STDERR, "Error: '$directory' is not a valid directory.\n");
-        exit(2);
-    }
-    $config = (new Config())->addDirectory($directory);
-}
-
-// Resolve ISP threshold: CLI overrides config, then checker default
-$ispThreshold = $ispThresholdCli ?? $config->getIspThreshold() ?? FatInterfaceRuleChecker::DEFAULT_THRESHOLD;
-
-# --- Main program -----------------------------------------------------------
-
-$finder  = new ClassFinder();
-$classes = $finder->findClassesFromConfig($config);
-if (empty($classes)) {
+$finder = new ClassFinder();
+$classes = $finder->findClassesFromConfig($options->config);
+if ($classes === []) {
     fwrite(STDERR, "No PHP classes found for the given config.\n");
     exit(0);
 }
 
-$writer = new StdWriter($verbose, $format);
-
-$totalViolations = 0;
-$failedClassNames = [];
-$allViolations = [];
-$allErrors = [];
-
-// --- LSP checks ---
-
-if ($runLsp) {
-    $typeChecker = new TypeSubtypeChecker();
-    $lspChecker = new LiskovSubstitutionPrincipleChecker([
-        new ThrowsContractRuleChecker(new ThrowsDetector()),
-        new ReturnTypeCovarianceRuleChecker($typeChecker),
-        new ParameterTypeContravarianceRuleChecker($typeChecker),
-    ]);
-    $writer->message("Checking Liskov Substitution Principle...", "\n\n");
-
-    foreach ($classes as $class) {
-        $loadError = null;
-        try {
-            $violations = $lspChecker->check($class);
-        } catch (ReflectionException $e) {
-            $violations = [];
-            $loadError = $e->getMessage();
-        }
-
-        $ok = ($loadError === null && count($violations) === 0);
-        $writer->content(($ok ? "[PASS]" : "[FAIL]") . " $class", FormatType::TEXT);
-
-        if (!$ok) {
-            $failedClassNames[] = $class;
-            if ($loadError !== null) {
-                $allErrors[] = ['class' => $class, 'message' => $loadError];
-                $writer->content("       -> Error: $loadError", FormatType::TEXT);
-            } else {
-                $totalViolations += count($violations);
-                foreach ($violations as $violation) {
-                    $allViolations[] = [
-                        'principle' => 'LSP',
-                        'className' => $violation->className,
-                        'methodName' => $violation->methodName,
-                        'contractName' => $violation->contractName,
-                        'reason' => $violation->reason,
-                        'details' => $violation->details,
-                    ];
-                    $writer->content("       -> $violation", FormatType::TEXT);
-                }
-            }
-        }
-    }
-}
-
-// --- ISP checks ---
-
-if ($runIsp) {
-    $ispChecker = new InterfaceSegregationPrincipleChecker([
-        new EmptyMethodRuleChecker(),
-        new FatInterfaceRuleChecker($ispThreshold),
-    ]);
-    $writer->message("\nChecking Interface Segregation Principle...", "\n\n");
-
-    foreach ($classes as $class) {
-        $loadError = null;
-        try {
-            $violations = $ispChecker->check($class);
-        } catch (ReflectionException $e) {
-            $violations = [];
-            $loadError = $e->getMessage();
-        }
-
-        $ok = ($loadError === null && count($violations) === 0);
-        $writer->content(($ok ? "[PASS]" : "[FAIL]") . " $class", FormatType::TEXT);
-
-        if (!$ok) {
-            $failedClassNames[] = $class;
-            if ($loadError !== null) {
-                $allErrors[] = ['class' => $class, 'message' => $loadError];
-                $writer->content("       -> Error: $loadError", FormatType::TEXT);
-            } else {
-                $totalViolations += count($violations);
-                foreach ($violations as $violation) {
-                    $allViolations[] = [
-                        'principle' => 'ISP',
-                        'className' => $violation->className,
-                        'interfaceName' => $violation->interfaceName,
-                        'reason' => $violation->reason,
-                        'details' => $violation->details,
-                    ];
-                    $writer->content("       -> $violation", FormatType::TEXT);
-                }
-            }
-        }
-    }
-}
-
-// --- Summary ---
-
-$writer->message("");
-$writer->message("Classes checked: " . count($classes));
-$failedCount = count(array_unique($failedClassNames));
-$writer->message("Passed: " . (count($classes) - $failedCount) . " / " . count($classes));
-$writer->message("Total violations: $totalViolations");
-
-$jsonReport = [
-    'violations' => $allViolations,
-    'errors' => $allErrors,
-];
-$writer->content(json_encode($jsonReport, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), FormatType::JSON);
-
-// Exit with code 1 if there were any failures, 0 otherwise.
-exit($failedCount > 0 ? 1 : 0);
+$writer = new StdWriter($options->verbose, $options->format);
+$result = (new Application())->run($options, $writer);
+$writer->content(
+    json_encode($result->toJsonReport(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+    FormatType::JSON,
+);
+exit($result->getFailedCount() > 0 ? 1 : 0);

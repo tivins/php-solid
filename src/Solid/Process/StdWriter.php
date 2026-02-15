@@ -20,7 +20,7 @@ class StdWriter
         fwrite(STDERR, $message . $suffix);
     }
 
-    public function content(string $message, FormatType $format = FormatType::TEXT, string $suffix = "\n"): void
+    public function content(string $message, FormatType $format, string $suffix = "\n"): void
     {
         if ($this->format !== $format) {
             return;

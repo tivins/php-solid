@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.20.0] - 2026-02-15
+
+### Added
+- **CLI parser and Application** — The monolithic script has been split into testable components (see § 3.2 of the internal report):
+  - **`Tivins\Solid\Cli\CliOptions`** — DTO holding parsed options (config, format, verbose, runLsp, runIsp, ispThreshold).
+  - **`Tivins\Solid\Cli\CliParser`** — Parses `$argv` and returns `CliOptions`; throws `CliParseException` on invalid or missing arguments.
+  - **`Tivins\Solid\Cli\Application`** — Runner that receives options and a writer, instantiates ClassFinder and checkers, runs LSP/ISP loops, and returns a structured **`RunResult`** (classes, violations, errors, failedClassNames). The binary now only invokes the parser, the runner, and exit.
+  - **`Tivins\Solid\Cli\RunResult`** — Structured result with `toJsonReport()`, `getFailedCount()`, `getTotalViolations()`.
+- **Unit tests for CLI layer** — `CliParserTest` (10 tests) and `ApplicationTest` (4 tests) target the parser and runner without executing the binary.
+
+### Changed
+- **CLI binary** — Reduced to ~45 lines: load autoload, parse argv via `CliParser`, run `Application`, output JSON and exit. Parsing and orchestration logic moved into `Cli\*` classes.
+- **Boucle LSP/ISP factorisée** — A single `runPrincipleLoop()` in Application handles both principles, reducing duplication and simplifying the addition of future principles (e.g. OCP, DIP).
+
 ## [0.19.0] - 2026-02-15
 
 ### Breaking
