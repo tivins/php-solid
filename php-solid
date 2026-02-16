@@ -12,7 +12,8 @@ use Tivins\Solid\Process\StdWriter;
 
 $autoload = '../autoload.php';
 if (!is_file($autoload)) {
-    throw new Exception("\"vendor/autoload.php\" not found ($autoload). Run via vendor/bin/php-solid from your project root after composer require tivins/php-solid.");
+
+    throw new Exception("\"vendor/autoload.php\" not found ($autoload). Current path =" . getcwd());
 }
 require $autoload;
 
