@@ -6,6 +6,7 @@ namespace Tivins\Solid\Cli;
 
 use Tivins\Solid\ISP\EmptyMethodRuleChecker;
 use Tivins\Solid\ISP\FatInterfaceRuleChecker;
+use Tivins\Solid\ISP\IncompleteImplementationRuleChecker;
 use Tivins\Solid\ISP\InterfaceSegregationPrincipleChecker;
 use Tivins\Solid\ISP\IspViolation;
 use Tivins\Solid\LSP\LiskovSubstitutionPrincipleChecker;
@@ -68,6 +69,7 @@ final class Application
             $ispChecker = new InterfaceSegregationPrincipleChecker([
                 new EmptyMethodRuleChecker(),
                 new FatInterfaceRuleChecker($options->ispThreshold),
+                new IncompleteImplementationRuleChecker(),
             ]);
             $writer->message("\nChecking Interface Segregation Principle...", "\n\n");
             $this->runPrincipleLoop(

@@ -17,6 +17,7 @@ use ReflectionException;
  * Currently supported rules (via IspRuleCheckerInterface implementations):
  * - Empty/stub method detection (EmptyMethodRuleChecker)
  * - Fat interface detection (FatInterfaceRuleChecker)
+ * - Incomplete implementation detection (IncompleteImplementationRuleChecker: TODO + trivial return)
  */
 readonly class InterfaceSegregationPrincipleChecker
 {

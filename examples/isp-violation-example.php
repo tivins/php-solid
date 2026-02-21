@@ -167,3 +167,31 @@ class IspCompliantClass implements IspCompliantInterface
         return 42;
     }
 }
+
+// ============================================================================
+// ISP Example 6: Incomplete implementation (TODO + trivial constant return)
+// ============================================================================
+
+interface IspCheckerInterface
+{
+    public function check(string $id): bool;
+}
+
+/** Real implementation — no violation. */
+class IspChecker implements IspCheckerInterface
+{
+    public function check(string $id): bool
+    {
+        return $id !== '';
+    }
+}
+
+/** Mock with TODO and always false — incomplete implementation, ISP violation. */
+class IspMockChecker implements IspCheckerInterface
+{
+    public function check(string $id): bool
+    {
+        // TODO: Implement check() method.
+        return false;
+    }
+}

@@ -7,6 +7,7 @@ namespace Tivins\Solid\Tests;
 use PHPUnit\Framework\TestCase;
 use Tivins\Solid\ISP\EmptyMethodRuleChecker;
 use Tivins\Solid\ISP\FatInterfaceRuleChecker;
+use Tivins\Solid\ISP\IncompleteImplementationRuleChecker;
 use Tivins\Solid\ISP\InterfaceSegregationPrincipleChecker;
 use Tivins\Solid\ISP\IspViolation;
 
@@ -38,6 +39,7 @@ final class InterfaceSegregationPrincipleCheckerTest extends TestCase
         return new InterfaceSegregationPrincipleChecker([
             new EmptyMethodRuleChecker(),
             new FatInterfaceRuleChecker($fatThreshold),
+            new IncompleteImplementationRuleChecker(),
         ]);
     }
 
@@ -133,6 +135,36 @@ final class InterfaceSegregationPrincipleCheckerTest extends TestCase
         $this->assertEmpty($fatViolations, 'Should not detect fat interface when threshold is 10');
     }
 
+    // ---- Incomplete implementation (TODO + trivial return) ----
+
+    public function testIncompleteImplementationWithTodoAndTrivialReturnIsDetected(): void
+    {
+        $checker = $this->createChecker();
+        $violations = $checker->check(\IspMockChecker::class);
+
+        $this->assertNotEmpty($violations, 'IspMockChecker has TODO and return false — incomplete implementation');
+        $incomplete = array_filter(
+            $violations,
+            fn(IspViolation $v) => str_contains($v->reason, 'incomplete implementation'),
+        );
+        $this->assertCount(1, $incomplete);
+        $v = reset($incomplete);
+        $this->assertStringContainsString('check()', $v->reason);
+        $this->assertSame('IspCheckerInterface', $v->interfaceName);
+    }
+
+    public function testRealImplementationWithoutTodoHasNoIncompleteViolation(): void
+    {
+        $checker = $this->createChecker();
+        $violations = $checker->check(\IspChecker::class);
+
+        $incomplete = array_filter(
+            $violations,
+            fn(IspViolation $v) => str_contains($v->reason, 'incomplete implementation'),
+        );
+        $this->assertEmpty($incomplete, 'IspChecker has real logic and no TODO — no incomplete violation');
+    }
+
     // ---- Compliant class ----
 
     public function testIspCompliantClassHasNoViolations(): void
@@ -178,6 +210,8 @@ final class InterfaceSegregationPrincipleCheckerTest extends TestCase
             \IspReadOnlyRepository::class,
             \IspFatImplementation::class,
             \IspCompliantClass::class,
+            \IspChecker::class,
+            \IspMockChecker::class,
         ];
         $checker = $this->createChecker();
 

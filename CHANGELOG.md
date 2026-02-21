@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.4] - 2026-02-21
+
+### Added
+- **`IncompleteImplementationRuleChecker` (ISP)** — Detects incomplete interface implementations: methods that implement an interface but contain a TODO (or FIXME, XXX, HACK, "Implement … method") and a trivial constant return (e.g. always `false`, `true`, `null`, `[]`, `0`, `1`). Such stubs do not fulfil a meaningful contract (addresses [php-solid#1](https://github.com/tivins/php-solid/issues/1)).
+
+## [0.20.3] - (no changes documented)
+
 ## [0.20.2] - 2026-02-15
 
 ### Changed
